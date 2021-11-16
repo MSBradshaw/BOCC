@@ -1,0 +1,5 @@
+.idea/
+.snakemake/
+work/
+__pycache__/
+Edgelists/

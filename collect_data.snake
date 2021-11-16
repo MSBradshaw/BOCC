@@ -1,0 +1,206 @@
+YEARS = ['2015','2017','2021']
+YEARS = ['2015', '2016', '2017', '2018', '2019', '2020', '2021']
+rule all:
+	input:
+		'work/start.start',
+		expand('work/{year}/hp.obo',year=YEARS),
+		expand('work/{year}/genes_to_phenotype.txt',year=YEARS),
+		expand('work/{year}/string_edge_list.txt',year=YEARS),
+		'work/Resources/9606.protein.info.v11.5.txt',
+		expand('Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt',year=YEARS),
+		expand('Edgelists/String_HPO_{year}.phenotypic_branch.numbered.edgelist.txt',year=YEARS),
+		expand('Edgelists/String_HPO_{year}.phenotypic_branch.nodenames.txt',year=YEARS),
+		expand('Edgelists/String_HPO_{year}.all_hpo.edgelist.txt',year=YEARS),
+		expand('Edgelists/String_HPO_{year}.all_hpo.numbered.edgelist.txt',year=YEARS),
+		expand('Edgelists/String_HPO_{year}.all_hpo.nodenames.txt',year=YEARS)
+
+"""
+--- Collect The Data ---
+"""
+
+rule download_hpo:
+	input:
+		'work/start.start'
+	output:
+		hp15='work/2015/hp.obo',
+		hp16='work/2016/hp.obo',
+		hp17='work/2017/hp.obo',
+		hp21='work/2021/hp.obo',
+		hp18='work/2018/hp.obo',
+		hp19='work/2019/hp.obo',
+		hp20='work/2020/hp.obo'
+	shell:
+		"""
+		mkdir -p work/2017
+		wget https://raw.githubusercontent.com/obophenotype/human-phenotype-ontology/9a977e2b9d68eb964deef586c7645531733ae5f7/hp.obo
+		mv hp.obo {output.hp17}
+
+		mkdir -p work/2021
+		wget https://github.com/obophenotype/human-phenotype-ontology/raw/5ebbeb47e051f849241e9f055ce1afc91f1c906c/hp.obo
+		mv hp.obo {output.hp21}
+		
+		mkdir -p work/2015
+		wget https://github.com/drseb/HPO-archive/raw/master/2014-2015/2015_week_46/hpo/artefacts/hp.obo.gz
+		gunzip hp.obo.gz
+		mv hp.obo {output.hp15}
+		
+		mkdir -p work/2016
+		wget https://github.com/drseb/HPO-archive/raw/master/2016-2017/hp/1702/archive.zip 
+		unzip archive.zip
+		mv archive/hp/hp.obo {output.hp16}
+		rm -rf archive*
+
+		mkdir -p work/2018
+		wget https://github.com/obophenotype/human-phenotype-ontology/raw/b745ba91f22d641629997aa4de512ac32a1988ea/hp.obo
+		mv hp.obo {output.hp18}
+
+		mkdir -p work/2019
+		wget https://github.com/obophenotype/human-phenotype-ontology/raw/13f9d1cf2f1a33473996a72f13b87420c4a8ad95/hp.obo
+		mv hp.obo {output.hp19}
+		
+		mkdir -p work/2020
+		wget https://github.com/obophenotype/human-phenotype-ontology/raw/15b018a427667e33bd6e51c136414c17c952795d/hp.obo
+		mv hp.obo {output.hp20}
+		"""
+
+rule download_jenkins:
+	input:
+		'work/start.start'
+	output:
+		j17='work/2017/genes_to_phenotype.txt',
+		j15='work/2015/genes_to_phenotype.txt',
+		j21='work/2021/genes_to_phenotype.txt',
+		j16='work/2016/genes_to_phenotype.txt',
+		j19='work/2019/genes_to_phenotype.txt',
+		j20='work/2020/genes_to_phenotype.txt',
+		j18='work/2018/genes_to_phenotype.txt'
+	shell:
+		"""
+		for x in $(seq 2015 2021);
+		do
+			mkdir -p work/$x
+		done
+		#This is the data from Feb 2017, we know this because the sql dump file in this archive is labeled MYHPO_02_2017.sql
+		wget https://github.com/drseb/HPO-archive/raw/master/hpo.annotations.monthly/117/archive.zip
+		unzip archive.zip
+		cp archive/annotation/ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt {output.j17}
+		rm -rf archive*
+
+		# get the December 2015 data
+		wget https://github.com/drseb/HPO-archive/raw/master/hpo.annotations.monthly/2015-12-01_00-00-05/archive/annotation/ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt.gz
+		gunzip ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt.gz
+		mv ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt {output.j15}
+
+		# get the 2021 data
+		wget https://ci.monarchinitiative.org/view/hpo/job/hpo.annotations/11/artifact/rare-diseases/util/annotation/genes_to_phenotype.txt
+		mv genes_to_phenotype.txt {output.j21}
+
+		# this is techically from January 2017, but since the only other 2016 version I can find is from Jan 2016 which is right after and persumably very similar to the Dec 2015 data I am using this as the 2016 data.
+		wget https://github.com/drseb/HPO-archive/raw/master/hpo.annotations.monthly/115/archive.zip
+		unzip archive.zip
+		cp archive/annotation/ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt {output.j16}
+		rm -rf archive*
+
+		# 2020
+		wget https://ci.monarchinitiative.org/view/hpo/job/hpo.annotations/4/artifact/rare-diseases/util/annotation/genes_to_phenotype.txt
+		mv genes_to_phenotype.txt {output.j20}
+		
+		# 2019, this is from the wayback machine, but is not wget able, I copy and pasted the info into a file to save
+		# https://web.archive.org/web/20190902195916/http://compbio.charite.de:80/jenkins/job/hpo.annotations.monthly/lastSuccessfulBuild/artifact/annotation/ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt
+		cp Resources/jenkins2019.txt {output.j19}
+
+		# Infer the 2018 data from the current data (per recommendation of Peter Robinson (PI on HPO)
+		python Scripts/infer_2018.py
+		mv genes_to_phenotype.txt {output.j18}
+		"""
+
+rule download_string:
+	input:
+		'work/start.start'
+	output:
+		s17='work/2017/string_edge_list.txt',
+		s15='work/2015/string_edge_list.txt',
+		s21='work/2021/string_edge_list.txt',
+		s18='work/2018/string_edge_list.txt',
+		s19='work/2019/string_edge_list.txt',
+		s20='work/2020/string_edge_list.txt',
+		s16='work/2016/string_edge_list.txt'
+	shell:
+		"""
+		for x in $(seq 2015 2021);
+		do
+			mkdir -p work/$x
+		done
+
+		wget http://version10.string-db.org/download/protein.links.v10/9606.protein.links.v10.txt.gz
+		gunzip 9606.protein.links.v10.txt.gz
+		mv 9606.protein.links.v10.txt {output.s17}
+
+		wget http://string91.embl.de/newstring_download/protein.links.v9.1/9606.protein.links.v9.1.txt.gz
+		gunzip 9606.protein.links.v9.1.txt.gz
+		mv 9606.protein.links.v9.1.txt {output.s15}
+
+		wget https://stringdb-static.org/download/protein.links.v11.5/9606.protein.links.v11.5.txt.gz
+		gunzip 9606.protein.links.v11.5.txt.gz
+		mv 9606.protein.links.v11.5.txt {output.s21}
+
+		# 2020 and 2019 are from different web pages 11b and 11 of string but route to the same list of protein links
+		wget https://stringdb-static.org/download/protein.links.v11.0/9606.protein.links.v11.0.txt.gz
+		gunzip 9606.protein.links.v11.0.txt.gz
+		mv 9606.protein.links.v11.0.txt {output.s20}
+
+		wget https://stringdb-static.org/download/protein.links.v11.0/9606.protein.links.v11.0.txt.gz
+		gunzip 9606.protein.links.v11.0.txt.gz
+		mv 9606.protein.links.v11.0.txt {output.s19}
+		
+		wget https://version-10-5.string-db.org/download/protein.links.v10.5/9606.protein.links.v10.5.txt.gz
+		gunzip 9606.protein.links.v10.5.txt.gz
+		mv 9606.protein.links.v10.5.txt {output.s18}
+
+		wget http://version10.string-db.org/download/protein.links.v10/9606.protein.links.v10.txt.gz
+		gunzip 9606.protein.links.v10.txt.gz
+		mv 9606.protein.links.v10.txt {output.s17}
+
+		wget http://version10.string-db.org/download/protein.links.v10/9606.protein.links.v10.txt.gz
+		gunzip 9606.protein.links.v10.txt.gz
+		mv 9606.protein.links.v10.txt {output.s16}
+		"""
+
+rule collect_string_info:
+	input:
+		'work/start.start'
+	output:
+		'work/Resources/9606.protein.info.v11.5.txt'
+	shell:
+		"""
+		mkdir -p work/Resources
+		wget https://stringdb-static.org/download/protein.info.v11.5/9606.protein.info.v11.5.txt.gz
+		gunzip 9606.protein.info.v11.5.txt.gz
+		mv 9606.protein.info.v11.5.txt {output}
+		"""
+
+rule make_edgelists:
+	input:
+		string='work/{year}/string_edge_list.txt',
+		jenkins='work/{year}/genes_to_phenotype.txt',
+		hpo='work/{year}/hp.obo',
+		string_info='work/Resources/9606.protein.info.v11.5.txt'
+	output:
+		'Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt',
+		'Edgelists/String_HPO_{year}.phenotypic_branch.numbered.edgelist.txt',
+		'Edgelists/String_HPO_{year}.phenotypic_branch.nodenames.txt',
+		'Edgelists/String_HPO_{year}.all_hpo.edgelist.txt',
+		'Edgelists/String_HPO_{year}.all_hpo.numbered.edgelist.txt',
+		'Edgelists/String_HPO_{year}.all_hpo.nodenames.txt',
+	shell:
+		"""
+		mkdir -p Edgelists
+		python Scripts/create_edgelist.py {input.hpo} {input.jenkins} {input.string} {input.string_info} Edgelists/String_HPO_{wildcards.year}
+		"""	
+
+"""
+--- Clustering ---
+"""
+
+
+
