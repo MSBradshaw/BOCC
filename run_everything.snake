@@ -10,9 +10,16 @@ rule all:
 		expand('Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt',year=YEARS),
 		expand('Edgelists/String_HPO_{year}.phenotypic_branch.numbered.edgelist.txt',year=YEARS),
 		expand('Edgelists/String_HPO_{year}.phenotypic_branch.nodenames.txt',year=YEARS),
+		expand('Edgelists/String_HPO_{year}.phenotypic_branch.nodeattributes.txt',year=YEARS),
 		expand('Edgelists/String_HPO_{year}.all_hpo.edgelist.txt',year=YEARS),
 		expand('Edgelists/String_HPO_{year}.all_hpo.numbered.edgelist.txt',year=YEARS),
-		expand('Edgelists/String_HPO_{year}.all_hpo.nodenames.txt',year=YEARS)
+		expand('Edgelists/String_HPO_{year}.all_hpo.nodenames.txt',year=YEARS),
+		expand('Edgelists/String_HPO_{year}.all_hpo.nodeattributes.txt',year=YEARS),
+		expand('Clusters/{year}/greedy.{year}.coms.txt',year=YEARS),
+		expand('Clusters/{year}/walktrap.{year}.coms.txt',year=YEARS),
+		expand('Clusters/{year}/cesna.{year}.coms.txt',year=YEARS),
+		'Algorithms/cesna'
+		#expand('Clusters/{year}/infomap.{year}.coms.txt',year=YEARS)
 
 """
 --- Collect The Data ---
@@ -32,34 +39,34 @@ rule download_hpo:
 	shell:
 		"""
 		mkdir -p work/2017
-		wget https://raw.githubusercontent.com/obophenotype/human-phenotype-ontology/9a977e2b9d68eb964deef586c7645531733ae5f7/hp.obo
+		wget --no-check-certificate https://raw.githubusercontent.com/obophenotype/human-phenotype-ontology/9a977e2b9d68eb964deef586c7645531733ae5f7/hp.obo
 		mv hp.obo {output.hp17}
 
 		mkdir -p work/2021
-		wget https://github.com/obophenotype/human-phenotype-ontology/raw/5ebbeb47e051f849241e9f055ce1afc91f1c906c/hp.obo
+		wget --no-check-certificate https://github.com/obophenotype/human-phenotype-ontology/raw/5ebbeb47e051f849241e9f055ce1afc91f1c906c/hp.obo
 		mv hp.obo {output.hp21}
 		
 		mkdir -p work/2015
-		wget https://github.com/drseb/HPO-archive/raw/master/2014-2015/2015_week_46/hpo/artefacts/hp.obo.gz
+		wget --no-check-certificate https://github.com/drseb/HPO-archive/raw/master/2014-2015/2015_week_46/hpo/artefacts/hp.obo.gz
 		gunzip hp.obo.gz
 		mv hp.obo {output.hp15}
 		
 		mkdir -p work/2016
-		wget https://github.com/drseb/HPO-archive/raw/master/2016-2017/hp/1702/archive.zip 
+		wget --no-check-certificate https://github.com/drseb/HPO-archive/raw/master/2016-2017/hp/1702/archive.zip 
 		unzip archive.zip
 		mv archive/hp/hp.obo {output.hp16}
 		rm -rf archive*
 
 		mkdir -p work/2018
-		wget https://github.com/obophenotype/human-phenotype-ontology/raw/b745ba91f22d641629997aa4de512ac32a1988ea/hp.obo
+		wget --no-check-certificate https://github.com/obophenotype/human-phenotype-ontology/raw/b745ba91f22d641629997aa4de512ac32a1988ea/hp.obo
 		mv hp.obo {output.hp18}
 
 		mkdir -p work/2019
-		wget https://github.com/obophenotype/human-phenotype-ontology/raw/13f9d1cf2f1a33473996a72f13b87420c4a8ad95/hp.obo
+		wget --no-check-certificate https://github.com/obophenotype/human-phenotype-ontology/raw/13f9d1cf2f1a33473996a72f13b87420c4a8ad95/hp.obo
 		mv hp.obo {output.hp19}
 		
 		mkdir -p work/2020
-		wget https://github.com/obophenotype/human-phenotype-ontology/raw/15b018a427667e33bd6e51c136414c17c952795d/hp.obo
+		wget --no-check-certificate https://github.com/obophenotype/human-phenotype-ontology/raw/15b018a427667e33bd6e51c136414c17c952795d/hp.obo
 		mv hp.obo {output.hp20}
 		"""
 
@@ -81,29 +88,33 @@ rule download_jenkins:
 			mkdir -p work/$x
 		done
 		#This is the data from Feb 2017, we know this because the sql dump file in this archive is labeled MYHPO_02_2017.sql
-		wget https://github.com/drseb/HPO-archive/raw/master/hpo.annotations.monthly/117/archive.zip
+		wget --no-check-certificate https://github.com/drseb/HPO-archive/raw/master/hpo.annotations.monthly/117/archive.zip
 		unzip archive.zip
 		cp archive/annotation/ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt {output.j17}
 		rm -rf archive*
 
 		# get the December 2015 data
-		wget https://github.com/drseb/HPO-archive/raw/master/hpo.annotations.monthly/2015-12-01_00-00-05/archive/annotation/ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt.gz
+		wget --no-check-certificate https://github.com/drseb/HPO-archive/raw/master/hpo.annotations.monthly/2015-12-01_00-00-05/archive/annotation/ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt.gz
 		gunzip ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt.gz
 		mv ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt {output.j15}
 
 		# get the 2021 data
-		wget https://ci.monarchinitiative.org/view/hpo/job/hpo.annotations/11/artifact/rare-diseases/util/annotation/genes_to_phenotype.txt
+		wget --no-check-certificate https://ci.monarchinitiative.org/view/hpo/job/hpo.annotations/11/artifact/rare-diseases/util/annotation/genes_to_phenotype.txt
 		mv genes_to_phenotype.txt {output.j21}
+		cat {output.j21} | awk '{print $1"\t"$2"\t"$4"\t"$3}' > tmp
+		mv tmp {output.j21}
 
 		# this is techically from January 2017, but since the only other 2016 version I can find is from Jan 2016 which is right after and persumably very similar to the Dec 2015 data I am using this as the 2016 data.
-		wget https://github.com/drseb/HPO-archive/raw/master/hpo.annotations.monthly/115/archive.zip
+		wget --no-check-certificate https://github.com/drseb/HPO-archive/raw/master/hpo.annotations.monthly/115/archive.zip
 		unzip archive.zip
 		cp archive/annotation/ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt {output.j16}
 		rm -rf archive*
 
 		# 2020
-		wget https://ci.monarchinitiative.org/view/hpo/job/hpo.annotations/4/artifact/rare-diseases/util/annotation/genes_to_phenotype.txt
+		wget --no-check-certificate https://ci.monarchinitiative.org/view/hpo/job/hpo.annotations/4/artifact/rare-diseases/util/annotation/genes_to_phenotype.txt
 		mv genes_to_phenotype.txt {output.j20}
+		cat {output.j20} | awk '{print $1"\t"$2"\t"$4"\t"$3}' > tmp
+		mv tmp {output.j20}
 		
 		# 2019, this is from the wayback machine, but is not wget able, I copy and pasted the info into a file to save
 		# https://web.archive.org/web/20190902195916/http://compbio.charite.de:80/jenkins/job/hpo.annotations.monthly/lastSuccessfulBuild/artifact/annotation/ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt
@@ -132,36 +143,36 @@ rule download_string:
 			mkdir -p work/$x
 		done
 
-		wget http://version10.string-db.org/download/protein.links.v10/9606.protein.links.v10.txt.gz
+		wget --no-check-certificate http://version10.string-db.org/download/protein.links.v10/9606.protein.links.v10.txt.gz
 		gunzip 9606.protein.links.v10.txt.gz
 		mv 9606.protein.links.v10.txt {output.s17}
 
-		wget http://string91.embl.de/newstring_download/protein.links.v9.1/9606.protein.links.v9.1.txt.gz
+		wget --no-check-certificate http://string91.embl.de/newstring_download/protein.links.v9.1/9606.protein.links.v9.1.txt.gz
 		gunzip 9606.protein.links.v9.1.txt.gz
 		mv 9606.protein.links.v9.1.txt {output.s15}
 
-		wget https://stringdb-static.org/download/protein.links.v11.5/9606.protein.links.v11.5.txt.gz
+		wget --no-check-certificate https://stringdb-static.org/download/protein.links.v11.5/9606.protein.links.v11.5.txt.gz
 		gunzip 9606.protein.links.v11.5.txt.gz
 		mv 9606.protein.links.v11.5.txt {output.s21}
 
 		# 2020 and 2019 are from different web pages 11b and 11 of string but route to the same list of protein links
-		wget https://stringdb-static.org/download/protein.links.v11.0/9606.protein.links.v11.0.txt.gz
+		wget --no-check-certificate https://stringdb-static.org/download/protein.links.v11.0/9606.protein.links.v11.0.txt.gz
 		gunzip 9606.protein.links.v11.0.txt.gz
 		mv 9606.protein.links.v11.0.txt {output.s20}
 
-		wget https://stringdb-static.org/download/protein.links.v11.0/9606.protein.links.v11.0.txt.gz
+		wget --no-check-certificate https://stringdb-static.org/download/protein.links.v11.0/9606.protein.links.v11.0.txt.gz
 		gunzip 9606.protein.links.v11.0.txt.gz
 		mv 9606.protein.links.v11.0.txt {output.s19}
 		
-		wget https://version-10-5.string-db.org/download/protein.links.v10.5/9606.protein.links.v10.5.txt.gz
+		wget --no-check-certificate https://version-10-5.string-db.org/download/protein.links.v10.5/9606.protein.links.v10.5.txt.gz
 		gunzip 9606.protein.links.v10.5.txt.gz
 		mv 9606.protein.links.v10.5.txt {output.s18}
 
-		wget http://version10.string-db.org/download/protein.links.v10/9606.protein.links.v10.txt.gz
+		wget --no-check-certificate http://version10.string-db.org/download/protein.links.v10/9606.protein.links.v10.txt.gz
 		gunzip 9606.protein.links.v10.txt.gz
 		mv 9606.protein.links.v10.txt {output.s17}
 
-		wget http://version10.string-db.org/download/protein.links.v10/9606.protein.links.v10.txt.gz
+		wget --no-check-certificate http://version10.string-db.org/download/protein.links.v10/9606.protein.links.v10.txt.gz
 		gunzip 9606.protein.links.v10.txt.gz
 		mv 9606.protein.links.v10.txt {output.s16}
 		"""
@@ -174,7 +185,7 @@ rule collect_string_info:
 	shell:
 		"""
 		mkdir -p work/Resources
-		wget https://stringdb-static.org/download/protein.info.v11.5/9606.protein.info.v11.5.txt.gz
+		wget --no-check-certificate https://stringdb-static.org/download/protein.info.v11.5/9606.protein.info.v11.5.txt.gz
 		gunzip 9606.protein.info.v11.5.txt.gz
 		mv 9606.protein.info.v11.5.txt {output}
 		"""
@@ -189,18 +200,93 @@ rule make_edgelists:
 		'Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt',
 		'Edgelists/String_HPO_{year}.phenotypic_branch.numbered.edgelist.txt',
 		'Edgelists/String_HPO_{year}.phenotypic_branch.nodenames.txt',
+		'Edgelists/String_HPO_{year}.phenotypic_branch.nodeattributes.txt',
 		'Edgelists/String_HPO_{year}.all_hpo.edgelist.txt',
 		'Edgelists/String_HPO_{year}.all_hpo.numbered.edgelist.txt',
 		'Edgelists/String_HPO_{year}.all_hpo.nodenames.txt',
+		'Edgelists/String_HPO_{year}.all_hpo.nodeattributes.txt'
 	shell:
 		"""
 		mkdir -p Edgelists
 		python Scripts/create_edgelist.py {input.hpo} {input.jenkins} {input.string} {input.string_info} Edgelists/String_HPO_{wildcards.year}
+		cat Edgelists/String_HPO_{wildcards.year}.phenotypic_branch.nodenames.txt  | python nodenames_to_attributes.py > Edgelists/String_HPO_{wildcards.year}.phenotypic_branch.nodeattributes.txt
+		cat Edgelists/String_HPO_{wildcards.year}.all_hpo.nodenames.txt  | python nodenames_to_attributes.py > Edgelists/String_HPO_{wildcards.year}.all_hpo.nodeattributes.txt 
 		"""	
 
 """
 --- Clustering ---
 """
+
+
+rule cluster_greedy:
+	input:
+		'Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt'
+	output:
+		'Clusters/{year}/greedy.{year}.coms.txt'
+	shell:
+		"""
+		python Algorithms/greedy.py --edgelist {input} --out {output}
+		"""
+
+rule cluster_walktrap:
+	input:
+		'Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt'
+	output:
+		'Clusters/{year}/walktrap.{year}.coms.txt'
+	shell:
+		"""
+		python Algorithms/walktrap.py --edgelist {input} --out {output}
+		"""
+
+rule cluster_infomap:
+	input:
+		'Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt'
+	output:
+		'Clusters/{year}/infomap.{year}.coms.txt'
+	shell:
+		"""
+		python Algorithms/cluster_infomap.py --edgelist {input} --out {output}
+		"""
+
+rule install_cesna:
+	input:
+		'work/start.start',
+	output:
+		'Algorithms/cesna'
+	shell:
+		"""
+		git clone git@github.com:snap-stanford/snap.git
+		cd snap/examples/cesna
+		make
+		cp cesna ../../../Algorithms/
+		cd ../../..
+		rm -rf snap/
+		"""
+
+rule cluster_cesna:
+	input:
+		cesna='Algorithms/cesna',
+		el='Edgelists/String_HPO_{year}.phenotypic_branch.numbered.edgelist.txt',
+		el_names='Edgelists/String_HPO_{year}.phenotypic_branch.nodenames.txt',
+		attr='Edgelists/String_HPO_{year}.phenotypic_branch.nodeattributes.txt'
+	output:
+		'Clusters/{year}/cesna.{year}.coms.txt'
+	threads: 15
+	shell:
+		"""
+		cd Clusters/{wildcards.year}	
+		../../Algorithms/cesna -i:../../{input.el} -l:../../{input.el_names} -n:../../{input.attr} -a:../../{input.attr} -c:-1 -nt:15 -o:hpo_string_cesna -mc:10 -xc:15000
+		python ../../Scripts/num_coms.py hpo_string_cesnacmtyvv.txt > cesna.{wildcards.year}.coms.txt
+		#python ../../Algorithms/number_cesna_results.py --cesna_res hpo_string_cesnacmtyvv.txt --output cesna.{wildcards.year}.coms.txt --node_names ../../{input.el_names}
+		cd ../..
+		"""	
+
+
+
+
+
+
+
 
 
 
