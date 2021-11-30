@@ -1,6 +1,26 @@
 import pandas as pd
 import datetime
+import argparse
 
+def get_args():
+    parser = argparse.ArgumentParser()
+
+
+    parser.add_argument('--year',
+                        dest='year',
+                        required=True,
+                        help='year to include data up till january first of. So --year 2019 will gather all data from'
+                             'before January 1 2019')
+
+    parser.add_argument('--output',
+                        dest='output',
+                        required=True,
+                        help='name of file to save the inferred g2p info at')
+
+    args = parser.parse_args()
+    return args
+
+args = get_args()
 """
 The purpose of this file to to infer the 2018 genes_to_phenotype.txt file from the current ones by using the date in
 the Biocuration of the .hpoa file. This was what was recommended to me by Peter Robinson, a PI on the HPO project.
@@ -49,11 +69,11 @@ for i in range(anno.shape[0]):
         if date < mapping[joint_id]:
             mapping[joint_id] = date
 
-cut_off_time = int(datetime.datetime.strptime('2019-01-01', '%Y-%m-%d').strftime("%s"))
+cut_off_time = int(datetime.datetime.strptime('{}-01-01'.format(args.year), '%Y-%m-%d').strftime("%s"))
 
 # if the pair is in the annotation mapping, add the time stamp, otherwise add an arbitrarily HUGE date
 g2p['date'] = [ mapping[g2p.iloc[i, 2] + g2p.iloc[i, 8]] if g2p.iloc[i, 2] + g2p.iloc[i, 8] in mapping else 9000000000 for i in range(g2p.shape[0])]
 
 sub = g2p[g2p['date'] < cut_off_time]
 
-sub.to_csv('genes_to_phenotype.txt', sep='\t', index=False, header=False)
+sub.to_csv(args.output, sep='\t', index=False, header=False)

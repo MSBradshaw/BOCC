@@ -15,10 +15,11 @@ rule all:
 		expand('Edgelists/String_HPO_{year}.all_hpo.numbered.edgelist.txt',year=YEARS),
 		expand('Edgelists/String_HPO_{year}.all_hpo.nodenames.txt',year=YEARS),
 		expand('Edgelists/String_HPO_{year}.all_hpo.nodeattributes.txt',year=YEARS),
-		expand('Clusters/{year}/greedy.{year}.coms.txt',year=YEARS),
-		expand('Clusters/{year}/walktrap.{year}.coms.txt',year=YEARS),
-		expand('Clusters/{year}/cesna.{year}.coms.txt',year=YEARS),
-		'Algorithms/cesna'
+		expand('work/{year}/inferred_genes_to_phenotype.txt',year=YEARS)
+		#expand('Clusters/{year}/greedy.{year}.coms.txt',year=YEARS),
+		#expand('Clusters/{year}/walktrap.{year}.coms.txt',year=YEARS),
+		#expand('Clusters/{year}/cesna.{year}.coms.txt',year=YEARS),
+		#'Algorithms/cesna'
 		#expand('Clusters/{year}/infomap.{year}.coms.txt',year=YEARS)
 
 """
@@ -100,9 +101,8 @@ rule download_jenkins:
 
 		# get the 2021 data
 		wget --no-check-certificate https://ci.monarchinitiative.org/view/hpo/job/hpo.annotations/11/artifact/rare-diseases/util/annotation/genes_to_phenotype.txt
-		mv genes_to_phenotype.txt {output.j21}
-		cat {output.j21} | awk '{print $1"\t"$2"\t"$4"\t"$3}' > tmp
-		mv tmp {output.j21}
+		cat genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.j21}
+		rm genes_to_phenotype.txt
 
 		# this is techically from January 2017, but since the only other 2016 version I can find is from Jan 2016 which is right after and persumably very similar to the Dec 2015 data I am using this as the 2016 data.
 		wget --no-check-certificate https://github.com/drseb/HPO-archive/raw/master/hpo.annotations.monthly/115/archive.zip
@@ -112,17 +112,19 @@ rule download_jenkins:
 
 		# 2020
 		wget --no-check-certificate https://ci.monarchinitiative.org/view/hpo/job/hpo.annotations/4/artifact/rare-diseases/util/annotation/genes_to_phenotype.txt
-		mv genes_to_phenotype.txt {output.j20}
-		cat {output.j20} | awk '{print $1"\t"$2"\t"$4"\t"$3}' > tmp
-		mv tmp {output.j20}
+		cat  genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.j20}
+		rm genes_to_phenotype.txt
 		
 		# 2019, this is from the wayback machine, but is not wget able, I copy and pasted the info into a file to save
 		# https://web.archive.org/web/20190902195916/http://compbio.charite.de:80/jenkins/job/hpo.annotations.monthly/lastSuccessfulBuild/artifact/annotation/ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt
 		cp Resources/jenkins2019.txt {output.j19}
 
 		# Infer the 2018 data from the current data (per recommendation of Peter Robinson (PI on HPO)
+		wget https://ci.monarchinitiative.org/view/hpo/job/hpo.annotations/11/artifact/rare-diseases/misc/phenotype_annotation.tab
+		mv phenotype_annotation.tab Resources/
 		python Scripts/infer_2018.py
-		mv genes_to_phenotype.txt {output.j18}
+		cat genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.j18}
+		rm genes_to_phenotype.txt
 		"""
 
 rule download_string:
@@ -280,7 +282,55 @@ rule cluster_cesna:
 		#python ../../Algorithms/number_cesna_results.py --cesna_res hpo_string_cesnacmtyvv.txt --output cesna.{wildcards.year}.coms.txt --node_names ../../{input.el_names}
 		cd ../..
 		"""	
-
+rule infer_all_jenkins_years:
+	input:
+		'work/start.start'
+	output:
+		ij15='work/2015/inferred_genes_to_phenotype.txt',
+		ij16='work/2016/inferred_genes_to_phenotype.txt',
+		ij17='work/2017/inferred_genes_to_phenotype.txt',
+		ij18='work/2018/inferred_genes_to_phenotype.txt',
+		ij19='work/2019/inferred_genes_to_phenotype.txt',
+		ij20='work/2020/inferred_genes_to_phenotype.txt',
+		ij21='work/2021/inferred_genes_to_phenotype.txt',
+	shell:
+		"""
+		python Scripts/infer_any_year.py --year 2016 --output inferred_genes_to_phenotype.txt
+		cat inferred_genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.ij15}
+		rm inferred_genes_to_phenotype.txt
+		echo "15 done"
+		
+		python Scripts/infer_any_year.py --year 2017 --output inferred_genes_to_phenotype.txt
+		cat inferred_genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.ij16}
+		rm inferred_genes_to_phenotype.txt
+		echo "16 done"
+		
+		python Scripts/infer_any_year.py --year 2018 --output inferred_genes_to_phenotype.txt
+		cat inferred_genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.ij17}
+		rm inferred_genes_to_phenotype.txt
+		echo "17 done"
+		
+		python Scripts/infer_any_year.py --year 2019 --output inferred_genes_to_phenotype.txt
+		cat inferred_genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.ij18}
+		rm inferred_genes_to_phenotype.txt
+		echo "18 done"
+		
+		python Scripts/infer_any_year.py --year 2020 --output inferred_genes_to_phenotype.txt
+		cat inferred_genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.ij19}
+		rm inferred_genes_to_phenotype.txt
+		echo "19 done"
+		
+		python Scripts/infer_any_year.py --year 2021 --output inferred_genes_to_phenotype.txt
+		cat inferred_genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.ij20}
+		rm inferred_genes_to_phenotype.txt
+		echo "20 done"
+		
+		python Scripts/infer_any_year.py --year 2022 --output inferred_genes_to_phenotype.txt
+		cat inferred_genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.ij21}
+		rm inferred_genes_to_phenotype.txt
+		echo "21 done"
+		
+		"""
 
 
 

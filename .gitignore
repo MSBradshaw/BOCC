@@ -5,3 +5,6 @@ __pycache__/
 Edgelists/
 Algorithms/cesna
 Clusters/
+.DS_Store
+Resources
+del.sh
