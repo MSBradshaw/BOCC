@@ -8,3 +8,5 @@ Clusters/
 .DS_Store
 Resources
 del.sh
+logs/
+*fijinode*
