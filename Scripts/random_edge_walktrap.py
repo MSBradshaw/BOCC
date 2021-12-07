@@ -10,12 +10,12 @@ def get_args():
     parser.add_argument('--edgelist',
                         dest='edgelist',
                         required=True,
-                        type=int,
                         help='tab separated edge list')
 
     parser.add_argument('--percent_random_edges',
                         dest='percent_random_edges',
                         required=True,
+                        type=int,
                         help='int, percent of total edges to be added to the network as random edges')
 
     parser.add_argument('--output',
@@ -37,13 +37,14 @@ hpos = [x for x in G.nodes if 'HP:' in x]
 random_edges = []
 per = args.percent_random_edges
 per = 10
-while len(random_edges) < (len(10)/100) * len(G.edges):
+while len(random_edges) < (10/100) * len(G.edges):
     g = random.choice(genes)
     h = random.choice(hpos)
-    if (h,g) in G.edges or (g,h) in G.edges:
+    if G.has_edge(g,h) or G.has_edge(h,g):
         continue
     else:
         G.add_edge(g,h)
+        random_edges.append([g,h])
 
 coms = algorithms.walktrap(G)
 

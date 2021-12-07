@@ -18,9 +18,9 @@ rule all:
 		expand('work/{year}/inferred_genes_to_phenotype.txt',year=YEARS),
 		expand('Clusters/{year}/greedy.{year}.coms.txt',year=YEARS),
 		expand('Clusters/{year}/walktrap.{year}.coms.txt',year=YEARS),
-		expand('Clusters/{year}/cesna.{year}.coms.txt',year=YEARS),
-		'Algorithms/cesna'
-		#expand('Clusters/{year}/infomap.{year}.coms.txt',year=YEARS)
+		#expand('Clusters/{year}/cesna.{year}.coms.txt',year=YEARS),
+		'Algorithms/cesna',
+		expand('Clusters/{year}/infomap.{year}.coms.txt',year=YEARS)
 
 """
 --- Collect The Data ---
@@ -244,12 +244,13 @@ rule cluster_walktrap:
 
 rule cluster_infomap:
 	input:
-		'Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt'
+		el='Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt',
+		names='Edgelists/String_HPO_{year}.phenotypic_branch.nodenames.txt' 
 	output:
 		'Clusters/{year}/infomap.{year}.coms.txt'
 	shell:
 		"""
-		python Algorithms/cluster_infomap.py --edgelist {input} --out {output}
+		python Algorithms/cluster_infomap.py --edgelist {input.el} --out {output} --nodenames {input.names}
 		"""
 
 rule install_cesna:
