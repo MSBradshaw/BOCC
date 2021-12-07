@@ -15,12 +15,12 @@ rule all:
 		expand('Edgelists/String_HPO_{year}.all_hpo.numbered.edgelist.txt',year=YEARS),
 		expand('Edgelists/String_HPO_{year}.all_hpo.nodenames.txt',year=YEARS),
 		expand('Edgelists/String_HPO_{year}.all_hpo.nodeattributes.txt',year=YEARS),
-		expand('work/{year}/inferred_genes_to_phenotype.txt',year=YEARS)
-		#expand('Clusters/{year}/greedy.{year}.coms.txt',year=YEARS),
-		#expand('Clusters/{year}/walktrap.{year}.coms.txt',year=YEARS),
+		expand('work/{year}/inferred_genes_to_phenotype.txt',year=YEARS),
+		expand('Clusters/{year}/greedy.{year}.coms.txt',year=YEARS),
+		expand('Clusters/{year}/walktrap.{year}.coms.txt',year=YEARS),
 		#expand('Clusters/{year}/cesna.{year}.coms.txt',year=YEARS),
-		#'Algorithms/cesna'
-		#expand('Clusters/{year}/infomap.{year}.coms.txt',year=YEARS)
+		'Algorithms/cesna',
+		expand('Clusters/{year}/infomap.{year}.coms.txt',year=YEARS)
 
 """
 --- Collect The Data ---
@@ -82,6 +82,8 @@ rule download_jenkins:
 		j19='work/2019/genes_to_phenotype.txt',
 		j20='work/2020/genes_to_phenotype.txt',
 		j18='work/2018/genes_to_phenotype.txt'
+	log:
+		'logs/download_jenkins.txt'
 	shell:
 		"""
 		for x in $(seq 2015 2021);
@@ -90,41 +92,41 @@ rule download_jenkins:
 		done
 		#This is the data from Feb 2017, we know this because the sql dump file in this archive is labeled MYHPO_02_2017.sql
 		wget --no-check-certificate https://github.com/drseb/HPO-archive/raw/master/hpo.annotations.monthly/117/archive.zip
-		unzip archive.zip
-		cp archive/annotation/ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt {output.j17}
-		rm -rf archive*
+		unzip archive.zip 2>> {log}
+		cp archive/annotation/ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt {output.j17}  2>> {log}
+		rm -rf archive*  2>> {log}
 
 		# get the December 2015 data
-		wget --no-check-certificate https://github.com/drseb/HPO-archive/raw/master/hpo.annotations.monthly/2015-12-01_00-00-05/archive/annotation/ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt.gz
-		gunzip ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt.gz
-		mv ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt {output.j15}
+		wget --no-check-certificate https://github.com/drseb/HPO-archive/raw/master/hpo.annotations.monthly/2015-12-01_00-00-05/archive/annotation/ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt.gz 2>> {log}
+		gunzip ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt.gz 2>> {log}
+		mv ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt {output.j15} 2>> {log}
 
 		# get the 2021 data
-		wget --no-check-certificate https://ci.monarchinitiative.org/view/hpo/job/hpo.annotations/11/artifact/rare-diseases/util/annotation/genes_to_phenotype.txt
-		cat genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.j21}
-		rm genes_to_phenotype.txt
+		wget --no-check-certificate https://ci.monarchinitiative.org/view/hpo/job/hpo.annotations/11/artifact/rare-diseases/util/annotation/genes_to_phenotype.txt 2>> {log}
+		cat genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.j21} 2>> {log}
+		rm genes_to_phenotype.txt 2>> {log}
 
 		# this is techically from January 2017, but since the only other 2016 version I can find is from Jan 2016 which is right after and persumably very similar to the Dec 2015 data I am using this as the 2016 data.
-		wget --no-check-certificate https://github.com/drseb/HPO-archive/raw/master/hpo.annotations.monthly/115/archive.zip
-		unzip archive.zip
-		cp archive/annotation/ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt {output.j16}
-		rm -rf archive*
+		wget --no-check-certificate https://github.com/drseb/HPO-archive/raw/master/hpo.annotations.monthly/115/archive.zip 2>> {log}
+		unzip archive.zip 2>> {log}
+		cp archive/annotation/ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt {output.j16} 2>> {log}
+		rm -rf archive* 2>> {log}
 
 		# 2020
-		wget --no-check-certificate https://ci.monarchinitiative.org/view/hpo/job/hpo.annotations/4/artifact/rare-diseases/util/annotation/genes_to_phenotype.txt
-		cat  genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.j20}
-		rm genes_to_phenotype.txt
+		wget --no-check-certificate https://ci.monarchinitiative.org/view/hpo/job/hpo.annotations/4/artifact/rare-diseases/util/annotation/genes_to_phenotype.txt 2>> {log}
+		cat  genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.j20} 2>> {log}
+		rm genes_to_phenotype.txt 2>> {log}
 		
 		# 2019, this is from the wayback machine, but is not wget able, I copy and pasted the info into a file to save
-		# https://web.archive.org/web/20190902195916/http://compbio.charite.de:80/jenkins/job/hpo.annotations.monthly/lastSuccessfulBuild/artifact/annotation/ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt
-		cp Resources/jenkins2019.txt {output.j19}
+		# https://web.archive.org/web/20190902195916/http://compbio.charite.de:80/jenkins/job/hpo.annotations.monthly/lastSuccessfulBuild/artifact/annotation/ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt 2>> {log}
+		cp Resources/jenkins2019.txt {output.j19} 2>> {log}
 
 		# Infer the 2018 data from the current data (per recommendation of Peter Robinson (PI on HPO)
-		wget https://ci.monarchinitiative.org/view/hpo/job/hpo.annotations/11/artifact/rare-diseases/misc/phenotype_annotation.tab
-		mv phenotype_annotation.tab Resources/
-		python Scripts/infer_2018.py
-		cat genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.j18}
-		rm genes_to_phenotype.txt
+		wget https://ci.monarchinitiative.org/view/hpo/job/hpo.annotations/11/artifact/rare-diseases/misc/phenotype_annotation.tab 2>> {log}
+		mv phenotype_annotation.tab Resources/ 2>> {log}
+		python Scripts/infer_2018.py 2>> {log}
+		cat genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.j18} 2>> {log}
+		rm genes_to_phenotype.txt 2>> {log}
 		"""
 
 rule download_string:
@@ -211,8 +213,8 @@ rule make_edgelists:
 		"""
 		mkdir -p Edgelists
 		python Scripts/create_edgelist.py {input.hpo} {input.jenkins} {input.string} {input.string_info} Edgelists/String_HPO_{wildcards.year}
-		cat Edgelists/String_HPO_{wildcards.year}.phenotypic_branch.nodenames.txt  | python nodenames_to_attributes.py > Edgelists/String_HPO_{wildcards.year}.phenotypic_branch.nodeattributes.txt
-		cat Edgelists/String_HPO_{wildcards.year}.all_hpo.nodenames.txt  | python nodenames_to_attributes.py > Edgelists/String_HPO_{wildcards.year}.all_hpo.nodeattributes.txt 
+		cat Edgelists/String_HPO_{wildcards.year}.phenotypic_branch.nodenames.txt  | python Scripts/nodenames_to_attributes.py > Edgelists/String_HPO_{wildcards.year}.phenotypic_branch.nodeattributes.txt
+		cat Edgelists/String_HPO_{wildcards.year}.all_hpo.nodenames.txt  | python Scripts/nodenames_to_attributes.py > Edgelists/String_HPO_{wildcards.year}.all_hpo.nodeattributes.txt 
 		"""	
 
 """
@@ -242,12 +244,13 @@ rule cluster_walktrap:
 
 rule cluster_infomap:
 	input:
-		'Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt'
+		el='Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt',
+		names='Edgelists/String_HPO_{year}.phenotypic_branch.nodenames.txt' 
 	output:
 		'Clusters/{year}/infomap.{year}.coms.txt'
 	shell:
 		"""
-		python Algorithms/cluster_infomap.py --edgelist {input} --out {output}
+		python Algorithms/cluster_infomap.py --edgelist {input.el} --out {output} --nodenames {input.names}
 		"""
 
 rule install_cesna:
@@ -273,11 +276,11 @@ rule cluster_cesna:
 		attr='Edgelists/String_HPO_{year}.phenotypic_branch.nodeattributes.txt'
 	output:
 		'Clusters/{year}/cesna.{year}.coms.txt'
-	threads: 15
+	threads: 60
 	shell:
 		"""
 		cd Clusters/{wildcards.year}	
-		../../Algorithms/cesna -i:../../{input.el} -l:../../{input.el_names} -n:../../{input.attr} -a:../../{input.attr} -c:-1 -nt:15 -o:hpo_string_cesna -mc:10 -xc:15000
+		../../Algorithms/cesna -i:../../{input.el} -l:../../{input.el_names} -n:../../{input.attr} -a:../../{input.attr} -c:-1 -nt:60 -o:hpo_string_cesna -mc:10000 -xc:15000
 		python ../../Scripts/num_coms.py hpo_string_cesnacmtyvv.txt > cesna.{wildcards.year}.coms.txt
 		#python ../../Algorithms/number_cesna_results.py --cesna_res hpo_string_cesnacmtyvv.txt --output cesna.{wildcards.year}.coms.txt --node_names ../../{input.el_names}
 		cd ../..

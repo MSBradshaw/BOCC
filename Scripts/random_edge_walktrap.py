@@ -37,13 +37,14 @@ hpos = [x for x in G.nodes if 'HP:' in x]
 random_edges = []
 per = args.percent_random_edges
 per = 10
-while len(random_edges) < (len(10)/100) * len(G.edges):
+while len(random_edges) < (10/100) * len(G.edges):
     g = random.choice(genes)
     h = random.choice(hpos)
-    if (h,g) in G.edges or (g,h) in G.edges:
+    if G.has_edge(g,h) or G.has_edge(h,g):
         continue
     else:
         G.add_edge(g,h)
+        random_edges.append([g,h])
 
 coms = algorithms.walktrap(G)
 
