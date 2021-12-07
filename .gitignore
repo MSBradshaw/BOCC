@@ -10,3 +10,5 @@ Resources
 del.sh
 Figures/
 *all_genes_info.json
+SubComs/
+SubComsBySize/

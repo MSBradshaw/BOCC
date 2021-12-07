@@ -10,12 +10,12 @@ def get_args():
     parser.add_argument('--edgelist',
                         dest='edgelist',
                         required=True,
-                        type=int,
                         help='tab separated edge list')
 
     parser.add_argument('--percent_random_edges',
                         dest='percent_random_edges',
                         required=True,
+                        type=int,
                         help='int, percent of total edges to be added to the network as random edges')
 
     parser.add_argument('--output',
