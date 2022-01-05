@@ -422,11 +422,13 @@ class BOCC:
                 majority_pair_fams.append(fam)
         return pairs_count, no_pairs_count, len(majority_pair_fams) / total_num_fams, family_pairs_no_pairs
 
+    """
     new_edges_file = '/Users/michael/PycharmProjects/ClusterComparison/Data/new_jenkins_edges.tsv'
     new_edges = []
     for line in open(new_edges_file, 'r'):
         edge = line.strip().split('\t')
         new_edges.append(edge)
+    """
 
     def get_num_new_edges(self, _new_edges: typing.List) -> int:
         _com = set(self.members)
