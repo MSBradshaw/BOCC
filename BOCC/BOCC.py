@@ -306,12 +306,12 @@ class BOCC:
         else:
             # FDR correction
             print('ALPHA!!!!!!!!!')
-            print(alpha)
-            print()
-            print()
-            print(list(go_df['pValue']))
-            print()
-            print()
+            #print(alpha)
+            #print()
+            #print()
+            #print(list(go_df['pValue']))
+            #print()
+            #print()
             rejected_null, pvals = fdrcorrection(list(go_df['pValue']), alpha=alpha)
             # add FDR correction to the results df
             go_df['significant'] = rejected_null
@@ -583,4 +583,6 @@ def summarize_clusters(clusters: typing.List[BOCC], G: nx.Graph, mygene2_file: s
             df = d
         else:
             df = pd.concat([df, d])
+    if df is None:
+        return pd.DataFrame()
     return df
