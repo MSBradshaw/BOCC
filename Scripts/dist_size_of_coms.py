@@ -43,7 +43,7 @@ plt.show()
 df = pd.DataFrame(plt_info)
 fig, axes = plt.subplots(1, 3)
 fig.set_size_inches(9, 3)
-for i,al in enumerate(df.algo.unique()):
+for i, al in enumerate(df.algo.unique()):
     sub = df[df['algo'] == al]
     axes[i].scatter(sub['size'], sub['new_edges'])
     axes[i].set_title(al)

@@ -20,3 +20,6 @@ SubComsBySize/
 AnyNewEdgeCountSnowballedCleanedSplit100BOCCResultsCombined
 Stability/
 g2p_Edgelists/
+com_sizes_by_year.csv
+norm_com_sizes_by_year.csv
+sim_results.tsv
