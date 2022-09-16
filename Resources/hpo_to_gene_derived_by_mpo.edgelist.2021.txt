@@ -1,0 +1,156 @@
+HP:0001927	SLC4A1	Acanthocytosis
+HP:0001927	SLC4A1	Acanthocytosis
+HP:0001927	SLC4A1	Acanthocytosis
+HP:0001927	SLC4A1	Acanthocytosis
+HP:0001927	SLC4A1	Acanthocytosis
+HP:0001927	SLC4A1	Acanthocytosis
+HP:0001927	SLC4A1	Acanthocytosis
+HP:0001927	SLC4A1	Acanthocytosis
+HP:0001927	SLC4A1	Acanthocytosis
+HP:0001927	SLC4A1	Acanthocytosis
+HP:0001927	SLC4A1	Acanthocytosis
+HP:0000953	FANCC	Hyperpigmentation of the skin
+HP:0000953	FANCC	Hyperpigmentation of the skin
+HP:0001395	LIPA	Hepatic fibrosis
+HP:0003593	LIPA	Infantile onset
+HP:0001522	LIPA	Death in infancy
+HP:0003621	LIPA	Juvenile onset
+HP:0003828	F7	Variable expressivity
+HP:0003828	F7	Variable expressivity
+HP:0003828	HSD11B2	Variable expressivity
+HP:0007759	IDS	Opacification of the corneal stroma
+HP:0001419	IDS	X-linked recessive inheritance
+HP:0001939	PON1	Abnormality of metabolism/homeostasis
+HP:0001939	PON1	Abnormality of metabolism/homeostasis
+HP:0011463	XPC	Childhood onset
+HP:0011463	XPC	Childhood onset
+HP:0011463	XPC	Childhood onset
+HP:0011463	XPC	Childhood onset
+HP:0002521	MSH2	Hypsarrhythmia
+HP:0002521	MSH2	Hypsarrhythmia
+HP:0001256	MSH2	Intellectual disability, mild
+HP:0001256	MSH2	Intellectual disability, mild
+HP:0020073	MSH2	Hypopigmented macule
+HP:0020073	MSH2	Hypopigmented macule
+HP:0004322	MSH2	Short stature
+HP:0004322	MSH2	Short stature
+HP:0000316	MSH2	Hypertelorism
+HP:0000316	MSH2	Hypertelorism
+HP:0002858	MSH2	Meningioma
+HP:0002858	MSH2	Meningioma
+HP:0001548	MSH2	Overgrowth
+HP:0001548	MSH2	Overgrowth
+HP:0001328	MSH2	Specific learning disability
+HP:0001328	MSH2	Specific learning disability
+HP:0000997	MSH2	Axillary freckling
+HP:0000997	MSH2	Axillary freckling
+HP:0000238	MSH2	Hydrocephalus
+HP:0000238	MSH2	Hydrocephalus
+HP:0002859	MSH2	Rhabdomyosarcoma
+HP:0002859	MSH2	Rhabdomyosarcoma
+HP:0002857	MSH2	Genu valgum
+HP:0002857	MSH2	Genu valgum
+HP:0002414	MSH2	Spina bifida
+HP:0002414	MSH2	Spina bifida
+HP:0000256	MSH2	Macrocephaly
+HP:0000256	MSH2	Macrocephaly
+HP:0001920	MSH2	Renal artery stenosis
+HP:0001920	MSH2	Renal artery stenosis
+HP:0002897	MSH2	Parathyroid adenoma
+HP:0002897	MSH2	Parathyroid adenoma
+HP:0002410	MSH2	Aqueductal stenosis
+HP:0002410	MSH2	Aqueductal stenosis
+HP:0001067	MSH2	Neurofibromas
+HP:0001067	MSH2	Neurofibromas
+HP:0002650	MSH2	Scoliosis
+HP:0002650	MSH2	Scoliosis
+HP:0100697	MSH2	Neurofibrosarcoma
+HP:0100697	MSH2	Neurofibrosarcoma
+HP:0009592	MSH2	Astrocytoma
+HP:0009592	MSH2	Astrocytoma
+HP:0000822	MSH2	Hypertension
+HP:0000822	MSH2	Hypertension
+HP:0000767	MSH2	Pectus excavatum
+HP:0000767	MSH2	Pectus excavatum
+HP:0030052	MSH2	Inguinal freckling
+HP:0030052	MSH2	Inguinal freckling
+HP:0009732	MSH2	Plexiform neurofibroma
+HP:0009732	MSH2	Plexiform neurofibroma
+HP:0009735	MSH2	Spinal neurofibromas
+HP:0009735	MSH2	Spinal neurofibromas
+HP:0009734	MSH2	Optic nerve glioma
+HP:0009734	MSH2	Optic nerve glioma
+HP:0000501	MSH2	Glaucoma
+HP:0000501	MSH2	Glaucoma
+HP:0009737	MSH2	Lisch nodules
+HP:0009737	MSH2	Lisch nodules
+HP:0002666	MSH2	Pheochromocytoma
+HP:0002666	MSH2	Pheochromocytoma
+HP:0009736	MSH2	Tibial pseudarthrosis
+HP:0009736	MSH2	Tibial pseudarthrosis
+HP:0000086	FANCD2	Ectopic kidney
+HP:0001000	FANCD2	Abnormality of skin pigmentation
+HP:0003828	F10	Variable expressivity
+HP:0001892	ITGB3	Abnormal bleeding
+HP:0001892	ITGB3	Abnormal bleeding
+HP:0001892	ITGB3	Abnormal bleeding
+HP:0001892	ITGB3	Abnormal bleeding
+HP:0003540	ITGB3	Impaired platelet aggregation
+HP:0003540	ITGB3	Impaired platelet aggregation
+HP:0003540	ITGB3	Impaired platelet aggregation
+HP:0003540	ITGB3	Impaired platelet aggregation
+HP:0002170	ITGB3	Intracranial hemorrhage
+HP:0002170	ITGB3	Intracranial hemorrhage
+HP:0002170	ITGB3	Intracranial hemorrhage
+HP:0002170	ITGB3	Intracranial hemorrhage
+HP:0000979	ITGB3	Purpura
+HP:0000979	ITGB3	Purpura
+HP:0000979	ITGB3	Purpura
+HP:0000979	ITGB3	Purpura
+HP:0001928	ITGB3	Abnormality of coagulation
+HP:0001928	ITGB3	Abnormality of coagulation
+HP:0001928	ITGB3	Abnormality of coagulation
+HP:0001928	ITGB3	Abnormality of coagulation
+HP:0004813	ITGB3	Post-transfusion thrombocytopenia
+HP:0004813	ITGB3	Post-transfusion thrombocytopenia
+HP:0004813	ITGB3	Post-transfusion thrombocytopenia
+HP:0004813	ITGB3	Post-transfusion thrombocytopenia
+HP:0001331	TDGF1	Absent septum pellucidum
+HP:0002079	TDGF1	Hypoplasia of the corpus callosum
+HP:0001263	TDGF1	Global developmental delay
+HP:0000660	G6PC	Lipemia retinalis
+HP:0001892	G6PC	Abnormal bleeding
+HP:0004322	G6PC	Short stature
+HP:0003077	G6PC	Hyperlipidemia
+HP:0003199	G6PC	Decreased muscle mass
+HP:0002240	G6PC	Hepatomegaly
+HP:0000939	G6PC	Osteoporosis
+HP:0001943	G6PC	Hypoglycemia
+HP:0002910	G6PC	Elevated hepatic transaminase
+HP:0001402	G6PC	Hepatocellular carcinoma
+HP:0003128	G6PC	Lactic acidosis
+HP:0002254	G6PC	Intermittent diarrhea
+HP:0000991	G6PC	Xanthomatosis
+HP:0000097	G6PC	Focal segmental glomerulosclerosis
+HP:0000295	G6PC	Doll-like facies
+HP:0000093	G6PC	Proteinuria
+HP:0012213	G6PC	Decreased glomerular filtration rate
+HP:0000822	G6PC	Hypertension
+HP:0000823	G6PC	Delayed puberty
+HP:0001538	G6PC	Protuberant abdomen
+HP:0001114	G6PC	Xanthelasma
+HP:0000105	G6PC	Enlarged kidney
+HP:0000787	G6PC	Nephrolithiasis
+HP:0001997	G6PC	Gout
+HP:0001733	G6PC	Pancreatitis
+HP:0002149	G6PC	Hyperuricemia
+HP:0000979	VWF	Purpura
+HP:0000979	VWF	Purpura
+HP:0003829	VWF	Incomplete penetrance
+HP:0003829	VWF	Incomplete penetrance
+HP:0000967	VWF	Petechiae
+HP:0000967	VWF	Petechiae
+HP:0001428	RB1	Somatic mutation
+HP:0001428	RB1	Somatic mutation
+HP:0001428	RB1	Somatic mutation
+HP:0001428	RB1	Somatic mutation
