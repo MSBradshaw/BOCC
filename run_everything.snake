@@ -1,5 +1,8 @@
 YEARS = ['2015','2017','2021']
 YEARS = ['2015', '2016', '2017', '2018', '2019', '2020', '2021']
+YEARS = ['2019', '2020', '2021']
+YEARS_short = ['2015', '2016', '2017', '2018', '2019', '2020']
+YEARS_short = ['2019', '2020']
 ALGOS = ['greedy','walktrap','infomap','cesna']
 HIER_ALGOS = ['paris','ward','louvain']
 rule all:
@@ -22,14 +25,21 @@ rule all:
 		expand('Clusters/{year}/greedy.{year}.coms.txt',year=YEARS),
 		expand('Clusters/{year}/walktrap.{year}.coms.txt',year=YEARS),
 		expand('g2p_Edgelists/String_HPO_{year}.phenotypic_branch.g2p_edgelist.txt',year=YEARS),
-		#expand('Clusters/{year}/cesna.{year}.coms.txt',year=YEARS),
+		expand('Clusters/{year}/cesna.{year}.coms.txt',year=YEARS),
 		'Algorithms/cesna',
 		expand('Clusters/{year}/infomap.{year}.coms.txt',year=YEARS),
 		expand('SubComs/{year}/paris.{algo}.{year}.coms.txt',algo=ALGOS,year=YEARS),
 		expand('SubComs/{year}/ward.{algo}.{year}.coms.txt',algo=ALGOS,year=YEARS),
 		expand('SubComs/{year}/louvain.{algo}.{year}.coms.txt',algo=ALGOS,year=YEARS),
-		expand('ResultsBOCC/{year}/paris.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS),
-		expand('ResultsBOCC/{year}/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS)
+		#expand('ResultsBOCC/{year}/paris.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS),
+		#expand('ResultsBOCC/{year}/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
+		expand("SnowballResults/snowball.{hier}.{algo}.String_HPO_{year}.phenotypic_branch.tsv",algo=ALGOS,year=YEARS_short,hier=HIER_ALGOS),
+		expand('CleanedSplit100BOCCResultsCombined/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
+		expand('SnowballedCleanedSplit100BOCCResultsCombined/{year}/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
+		expand('AnyNewEdgeCountSnowballedCleanedSplit100BOCCResultsCombined/{year}/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
+		expand('AverageInteralDegreeCheckResults/{algo}.{year}.coms.txt',year=YEARS,algo=ALGOS),
+		expand('MouseSnowballResults/snowball.{hier}.{algo}.String_HPO_2021.mouse.phenotypic_branch.tsv', hier=HIER_ALGOS, algo=ALGOS),
+		expand('SnowballResultsFixed/snowball.paris.{algo}.String_HPO_{year}.phenotypic_branch.tsv',algo=ALGOS,year=YEARS)
 
 """
 --- Collect The Data ---
@@ -316,12 +326,18 @@ rule cluster_cesna:
 	threads: 60
 	shell:
 		"""
+		cp CachedClusters/cesna.{wildcards.year}.coms.txt {output}
+		"""
+
+# this is the actual censa code, leaving it here for later use
+"""
 		cd Clusters/{wildcards.year}	
 		../../Algorithms/cesna -i:../../{input.el} -l:../../{input.el_names} -n:../../{input.attr} -a:../../{input.attr} -c:-1 -nt:60 -o:hpo_string_cesna -mc:10000 -xc:15000
 		python ../../Scripts/num_coms.py hpo_string_cesnacmtyvv.txt > cesna.{wildcards.year}.coms.txt
 		#python ../../Algorithms/number_cesna_results.py --cesna_res hpo_string_cesnacmtyvv.txt --output cesna.{wildcards.year}.coms.txt --node_names ../../{input.el_names}
 		cd ../..
-		"""	
+"""	
+
 rule infer_all_jenkins_years:
 	input:
 		'work/start.start'
@@ -375,53 +391,64 @@ rule infer_all_jenkins_years:
 rule paris_crosses:
 	input:
 		el='Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt',
-		#com='Clusters/{year}/{algo}.{year}.coms.txt'
+		com='Clusters/{year}/{algo}.{year}.coms.txt'
 		# commented out to avoid needing to rerun cesna in the snakemake pipeline
-		com='CachedClusters/{algo}.{year}.coms.txt'
+		#com='CachedClusters/{algo}.{year}.coms.txt'
 	output:
 		'SubComs/{year}/paris.{algo}.{year}.coms.txt'
 	shell:
 		"""
+		cp RelabeledSubComs/{wildcards.year}/paris.{wildcards.algo}.{wildcards.year}.coms.txt {output}
+		"""
+# this is the real code if you are reading this, put it back
+"""
 		echo "paris " {input.el} {input.com}
 		mkdir -p SubComs
 		mkdir -p SubComs/{wildcards.year}
 		python Scripts/hierarchical_clustering.py --edgelist {input.el}  --algo paris --coms {input.com} --output SubComs/{wildcards.year}/tmp.paris.{wildcards.algo}.{wildcards.year} --com_size 100
 		python Scripts/aggregate_size.py SubComs/{wildcards.year} tmp.paris > {output}
 		rm SubComs/{wildcards.year}/tmp.paris.*
-		"""
+"""
 
 rule ward_crosses:
-        input:
-                el='Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt',
-                #com='Clusters/{year}/{algo}.{year}.coms.txt'
-		com='CachedClusters/{algo}.{year}.coms.txt'
-        output:
-                'SubComs/{year}/ward.{algo}.{year}.coms.txt'
-        shell:
-                """
+	input:
+		el='Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt',
+		com='Clusters/{year}/{algo}.{year}.coms.txt'
+		#com='CachedClusters/{algo}.{year}.coms.txt'
+	output:
+		'SubComs/{year}/ward.{algo}.{year}.coms.txt'
+	shell:
+		"""
+			cp RelabeledSubComs/{wildcards.year}/ward.{wildcards.algo}.{wildcards.year}.coms.txt {output}
+		"""
+"""
                 mkdir -p SubComs
                 mkdir -p SubComs/{wildcards.year}
 		echo "ward " {input.el} {input.com}
                 python Scripts/hierarchical_clustering.py --edgelist {input.el}  --algo ward --coms {input.com} --output SubComs/{wildcards.year}/tmp.ward.{wildcards.algo}.{wildcards.year} --com_size 100
                 python Scripts/aggregate_size.py SubComs/{wildcards.year} tmp.ward > {output}
                 rm SubComs/{wildcards.year}/tmp.ward.*
-                """
+"""
 
 rule louvain_crosses:
-        input:
-                el='Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt',
-                #com='Clusters/{year}/{algo}.{year}.coms.txt'
-		com='CachedClusters/{algo}.{year}.coms.txt'
-        output:
-                'SubComs/{year}/louvain.{algo}.{year}.coms.txt'
-        shell:
-                """
+	input:
+		el='Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt',
+		com='Clusters/{year}/{algo}.{year}.coms.txt'
+		#com='CachedClusters/{algo}.{year}.coms.txt'
+	output:
+		'SubComs/{year}/louvain.{algo}.{year}.coms.txt'
+	shell:
+		"""
+			cp RelabeledSubComs/{wildcards.year}/louvain.{wildcards.algo}.{wildcards.year}.coms.txt {output}
+		"""
+
+"""
                 mkdir -p SubComs
                 mkdir -p SubComs/{wildcards.year}
                 python Scripts/hierarchical_clustering.py --edgelist {input.el}  --algo louvain --coms {input.com} --output SubComs/{wildcards.year}/tmp.louvain.{wildcards.algo}.{wildcards.year} --com_size 100
                 python Scripts/aggregate_size.py SubComs/{wildcards.year} tmp.louvain > {output}
                 rm SubComs/{wildcards.year}/tmp.louvain.*
-                """
+"""
 
 rule g2p_edge_lists:
 	input:
@@ -447,14 +474,124 @@ rule BOCC_results:
 		python BOCC/summarize_clusters.py --coms {input.coms} --alpha 0.05 --mg2 unused_place_holder --graph {input.el} --gnomad_file {input.plof} --out {output}
 		"""
 
-rule all_BOCC_results:
-	input:
-                coms='SubComs/{year}/{hier}.{algo}.{year}.coms.txt',
+#rule all_BOCC_results:
+#	input:
+#                coms='SubComs/{year}/{hier}.{algo}.{year}.coms.txt',
+#                el='Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt',
+#                plof='work/Resources/gnomad.v2.1.1.all_lofs.txt'
+#	output:
+#                'ResultsBOCC/{year}/{hier}.{algo}.{year}.bocc_res.tsv'
+#        shell:
+#                """
+#                python BOCC/summarize_clusters.py --coms {input.coms} --alpha 0.05 --mg2 unused_place_holder --graph {input.el} --gnomad_file {input.plof} --out {output}
+#                """
+
+rule snowball:
+        input:
                 el='Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt',
-                plof='work/Resources/gnomad.v2.1.1.all_lofs.txt'
-	output:
-                'ResultsBOCC/{year}/{hier}.{algo}.{year}.bocc_res.tsv'
+                coms='SubComs/{year}/{hier}.{algo}.{year}.coms.txt',
+		g2p=expand('g2p_Edgelists/String_HPO_{year}.phenotypic_branch.g2p_edgelist.txt',year=YEARS_short)
+        output:
+                "SnowballResults/snowball.{hier}.{algo}.String_HPO_{year}.phenotypic_branch.tsv"
         shell:
                 """
-                python BOCC/summarize_clusters.py --coms {input.coms} --alpha 0.05 --mg2 unused_place_holder --graph {input.el} --gnomad_file {input.plof} --out {output}
+		# add one to the year for get the edgelist for scoring
+                y=$(({wildcards.year}+1))
+		if [ $y -eq "2022" ]
+		then
+			echo "Nada, next year does not exist" > {output}
+		else
+			# CachedSnowballResults
+			if test -f "CachedSnowballResults/snowball.{wildcards.hier}.{wildcards.algo}.String_HPO_{wildcards.year}.phenotypic_branch.tsv";
+			then
+				cp CachedSnowballResults/snowball.{wildcards.hier}.{wildcards.algo}.String_HPO_{wildcards.year}.phenotypic_branch.tsv {output}
+			else
+                		python Scripts/snowball.py --edgelist {input.el} --output {output} --coms {input.coms} --new_edges g2p_Edgelists/String_HPO_${{y}}.phenotypic_branch.g2p_edgelist.txt --reps 100
+			fi
+		fi
                 """
+
+rule snowball_mouse:
+	input:
+		el='Edgelists/String_HPO_2021.phenotypic_branch.edgelist.txt',
+		coms='SubComs/2021/{hier}.{algo}.2021.coms.txt',
+		mouse_g2p='Resources/hpo_to_gene_derived_by_mpo.edgelist.2021.unique.txt'
+	output:
+		"MouseSnowballResults/snowball.{hier}.{algo}.String_HPO_2021.mouse.phenotypic_branch.tsv"
+	shell:
+		"""
+		mkdir -p MouseSnowballResults
+		python Scripts/snowball.py --edgelist {input.el} --output {output} --coms {input.coms} --new_edges {input.mouse_g2p} --reps 100
+		"""
+
+rule snowball_fixed:
+        input:
+                el='Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt',
+                coms='SubComs/{year}/paris.{algo}.{year}.coms.txt',
+		g2p=expand('g2p_Edgelists/String_HPO_{year}.phenotypic_branch.g2p_edgelist.txt',year=YEARS_short)
+        output:
+                "SnowballResultsFixed/snowball.paris.{algo}.String_HPO_{year}.phenotypic_branch.tsv"
+        shell:
+                """
+                mkdir -p SnowballResultsFixed
+		y=$(({wildcards.year}+1))
+                if [ $y -eq "2022" ]
+		then
+			echo "Nada, next year does not exist" > {output}
+		else
+                	python Scripts/snowball_fixed.py --edgelist {input.el} --output {output} --coms {input.coms} --new_edges g2p_Edgelists/String_HPO_${{y}}.phenotypic_branch.g2p_edgelist.txt --reps 100
+		fi
+                """
+
+rule create_bocc_results:
+	input:
+		expand('SubComs/{year}/{hier}.{algo}.{year}.coms.txt',algo=ALGOS,year=YEARS,hier=HIER_ALGOS)	
+	output:
+		expand('CleanedSplit100BOCCResultsCombined/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS)
+	shell:
+		"""
+		touch .start.txt
+		snakemake -s prepare_subcoms.snake --cores 10
+		snakemake -s generate_bocc_results.snake --cores 20
+		"""
+
+rule add_snowballing_to_bocc_res:
+	input:
+		bocc='CleanedSplit100BOCCResultsCombined/{hier}.{algo}.{year}.bocc_res.tsv',
+		snow="SnowballResults/snowball.{hier}.{algo}.String_HPO_{year}.phenotypic_branch.tsv"
+	output:
+		'SnowballedCleanedSplit100BOCCResultsCombined/{year}/{hier}.{algo}.{year}.bocc_res.tsv'
+	shell:
+		"""
+		mkdir -p SnowballedCleanedSplit100BOCCResultsCombined/{wildcards.year}
+		python Scripts/add_snowballing_to_bocc.py {input.bocc} {input.snow} {output}
+		"""
+
+rule add_any_new_edge_count_to_bocc_res:
+	input:
+		bocc='SnowballedCleanedSplit100BOCCResultsCombined/{year}/{hier}.{algo}.{year}.bocc_res.tsv',
+		subcom='SubComs/{year}/{hier}.{algo}.{year}.coms.txt',
+		g2p=expand('g2p_Edgelists/String_HPO_{year}.phenotypic_branch.g2p_edgelist.txt',year=YEARS_short)
+	output:
+		'AnyNewEdgeCountSnowballedCleanedSplit100BOCCResultsCombined/{year}/{hier}.{algo}.{year}.bocc_res.tsv'
+	shell:
+		"""
+		mkdir -p AnyNewEdgeCountSnowballedCleanedSplit100BOCCResultsCombined/{wildcards.year}
+		y=$(({wildcards.year}+1))
+		python Scripts/add_any_new_edges_to_bocc.py {input.bocc} {input.subcom} g2p_Edgelists/String_HPO_${{y}}.phenotypic_branch.g2p_edgelist.txt {output}
+		"""
+
+rule check_avg_internal_degree_of_parent_clusters:
+	input:
+		el='Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt',
+		com='Clusters/{year}/{algo}.{year}.coms.txt'
+	output:
+		'AverageInteralDegreeCheckResults/{algo}.{year}.coms.txt'
+	shell:
+		"""
+		mkdir -p AverageInteralDegreeCheckResults
+		python average_interal_degree.py {input.com} {input.el} > {output}
+		"""
+
+
+
