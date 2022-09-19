@@ -21,3 +21,12 @@ AnyNewEdgeCountSnowballedCleanedSplit100BOCCResultsCombined
 Stability/
 g2p_Edgelists/
 snowball_sim_results.tsv
+BOCC/BOCC.egg-info/
+SnowballResults
+Scripts/.ipynb_checkpoints/
+cleaned_snowball_sim_results.tsv
+paris.all.2021.coms.named_hpos.non-trivial.txt
+paris.all.2021.coms.named_hpos.non_trivial.grouped.txt
+paris.all.2021.coms.named_hpos.txt
+predictions_from_2019_fit.csv
+xgboost_results.csv

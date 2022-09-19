@@ -1,0 +1,38 @@
+[project]
+name = "BOCC"
+version = "0.0.1"
+description = "Biological Ontology Cluster Comparison"
+authors = ["Michael Bradshaw <mibr6115@colorado.edu>"]
+readme = "README.md"
+python = "^3.6"
+homepage = "https://github.com/MSBradshaw/BOCC"
+repository = "https://github.com/MSBradshaw/BOCC"
+documentation = "https://github.com/MSBradshaw/BOCC"
+
+keywords = ["BOCC"]
+
+classifiers = [
+    "Topic :: Software Development"
+]
+
+# Requirements
+[dependencies]
+Click = "^7.0"
+
+[dev-dependencies]
+black = { version = "^18.3-alpha.0", python = "^3.6" }
+
+[scripts]
+poetry = "infer_pyproject.cli:main"
+
+[build-system]
+requires = [
+    "setuptools >= 35.0.2",
+    "setuptools_scm >= 2.0.0, <3"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 88
+target_version = ['py36']
+include = '\.pyi?$'
