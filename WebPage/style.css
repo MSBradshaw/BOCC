@@ -13,7 +13,7 @@
 }
 .text_box{
     grid-column: 1;
-    background: #666;
+    /* background: #666; */
     height: 200px;
     display: grid;
     grid-template-columns: 1fr;
@@ -26,4 +26,11 @@
 #search_button{
     width: 100px;
     margin: 20px;
+}
+
+#resultslist{
+    /* overflow: overlay; */
+    padding: 10px;
+    height: fit-content;
+    display: block;
 }
