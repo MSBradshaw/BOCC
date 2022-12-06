@@ -1,0 +1,36 @@
+.main_grid{
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto auto;
+    margin-left: 5%;
+    margin-right: 5%;
+    margin-top: 10px;
+    margin-bottom: 5%;
+}
+.header{
+    grid-column: 1;
+    text-align: center;
+}
+.text_box{
+    grid-column: 1;
+    /* background: #666; */
+    height: 200px;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 30px auto;
+    margin: 20px;
+}
+.text_box label{
+    margin: 5px;
+}
+#search_button{
+    width: 100px;
+    margin: 20px;
+}
+
+#resultslist{
+    /* overflow: overlay; */
+    padding: 10px;
+    height: fit-content;
+    display: block;
+}
