@@ -4,12 +4,24 @@ import os
 import seaborn as sns
 import pandas as pd
 
+def clear_ax(ax, top=False, bottom=False, left=False, right=False):
+    ax.spines['top'].set_visible(top)
+    ax.spines['bottom'].set_visible(bottom)
+    ax.spines['left'].set_visible(left)
+    ax.spines['right'].set_visible(right)
+    # ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(True)
+    ax.yaxis.set_tick_params(width=0.0, labelsize=8)
+    ax.xaxis.set_tick_params(width=0.0, labelsize=8)
+
 plot_data = {'year': [], 'types': [], 'count': []}
 num_jenkin_edges = {'year': [], 'count': []}
 inferred_count = {'year': [], 'count': []}
 for f in os.listdir('Edgelists/'):
     if 'phenotypic_branch.edgelist.txt' not in f: continue
     y = f.split('.')[0].replace('String_HPO_', '')
+    if int(y) < 2019:
+        continue
     G = nx.read_edgelist('Edgelists/' + f)
     # break
     # get number of HPOs and Genes
@@ -62,20 +74,27 @@ for f in os.listdir('Edgelists/'):
     inferred_count['year'].append(str(year))
 
 plotting_df = pd.DataFrame(plot_data)
-sns.barplot(data=plotting_df, y='count', x='year', hue='types')
+fig, ax = plt.subplots()
+sns.barplot(data=plotting_df, y='count', x='year', hue='types',ax=ax)
 # sns.catplot(x=list(plot_data['count']),y=list(plot_data['year']))
 plt.yscale('log')
 # plt.show()
+clear_ax(ax)
 plt.savefig('Figures/network_stats_across_years_barplot.png')
 plt.show()
+plt.clf()
 
 tmp = plotting_df[plotting_df['types'] != '# String Edges']
-sns.barplot(data=tmp, y='count', x='year', hue='types')
+fig, ax = plt.subplots()
+
+sns.barplot(data=tmp, y='count', x='year', hue='types',ax=ax)
+clear_ax(ax)
 # sns.catplot(x=list(plot_data['count']),y=list(plot_data['year']))
 # plt.yscale('log')
 # plt.show()
 plt.savefig('Figures/network_stats_across_years_barplot_without_string.png')
 plt.show()
+plt.clf()
 
 """
 Plot inferred vs actual
@@ -91,6 +110,8 @@ year_color_map = {'2015': 'red', '2016': 'orange', '2017': 'yellow', '2018': 'gr
                   '2021': 'black'}
 joint_df['year'] = joint_df['year'].astype(str)
 for year in year_color_map.keys():
+    if int(year) < 2019:
+        continue
     sub = joint_df[joint_df['year'] == year]
     plt.scatter(sub['count_x'], sub['count_y'], color=year_color_map[str(year)], label=str(year))
 # plt.show()

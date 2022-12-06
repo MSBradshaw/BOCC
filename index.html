@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title></title>
+  <meta name="author" content="">
+  <meta name="description" content="">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="WebPage/style.css" rel="stylesheet">
+  <script src="WebPage/script.js"></script>
+</head>
+
+<body>
+    <div class="main_grid">
+        <div class="header">
+            <h1 class="title">BOCC</h1>
+            <h2 class="title">Biological Ontology Cluster Comparison</h2>
+        </div>
+        <div class="text_box">
+            <label for="genelist">Enter a list of gene symbols (1 per line)</label>
+            <!-- Enter gene list here... -->
+            <textarea id="genelist" name="genelist">
+KMT2D
+ACTL6B
+SLC25A24
+CYP4F22
+TARS1
+            </textarea>
+        </div>
+        <div class="text_box">
+            <label for="hpolist">Enter a list of HPO terms (1 per line)</label>
+                        <!-- Enter HPO term list here... -->
+            <textarea id="hpolist" name="hpolist">
+HP:0000437
+HP:0000175
+HP:0007651
+HP:0000656
+HP:0009237
+HP:0000388
+HP:0002553
+HP:0001249
+HP:0000403
+HP:0000365
+HP:0009748
+HP:0001212
+HP:0001263
+            </textarea>
+        </div>
+        <button id="search_button">Search</button>
+        <div class="text_box", id="resultslist">
+
+        </div>
+    </div>
+</body>
+</html>
