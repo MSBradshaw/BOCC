@@ -1,6 +1,10 @@
+print('a')
 from BOCC import load_clusters, summarize_clusters
+print('b')
 import argparse
+print('c')
 import networkx as nx
+print('d')
 
 def get_args():
     parser = argparse.ArgumentParser()

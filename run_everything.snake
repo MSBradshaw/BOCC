@@ -5,6 +5,7 @@ YEARS_short = ['2015', '2016', '2017', '2018', '2019', '2020']
 YEARS_short = ['2019', '2020']
 ALGOS = ['greedy','walktrap','infomap','cesna']
 HIER_ALGOS = ['paris','ward','louvain']
+HIER_ALGOS = ['paris']
 rule all:
 	input:
 		'work/start.start',
@@ -35,8 +36,8 @@ rule all:
 		#expand('ResultsBOCC/{year}/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
 		expand("SnowballResults/snowball.{hier}.{algo}.String_HPO_{year}.phenotypic_branch.tsv",algo=ALGOS,year=YEARS_short,hier=HIER_ALGOS),
 		expand('CleanedSplit100BOCCResultsCombined/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
-		expand('SnowballedCleanedSplit100BOCCResultsCombined/{year}/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
-		expand('AnyNewEdgeCountSnowballedCleanedSplit100BOCCResultsCombined/{year}/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
+		expand('SnowballedCleanedSplit100BOCCResultsCombinedFixed/{year}/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
+		expand('AnyNewEdgeCountSnowballedCleanedSplit100BOCCResultsCombinedFixed/{year}/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
 		expand('AverageInteralDegreeCheckResults/{algo}.{year}.coms.txt',year=YEARS,algo=ALGOS),
 		expand('MouseSnowballResults/snowball.{hier}.{algo}.String_HPO_2021.mouse.phenotypic_branch.tsv', hier=HIER_ALGOS, algo=ALGOS),
 		expand('SnowballResultsFixed/snowball.paris.{algo}.String_HPO_{year}.phenotypic_branch.tsv',algo=ALGOS,year=YEARS)
@@ -539,7 +540,8 @@ rule snowball_fixed:
 		then
 			echo "Nada, next year does not exist" > {output}
 		else
-                	python Scripts/snowball_fixed.py --edgelist {input.el} --output {output} --coms {input.coms} --new_edges g2p_Edgelists/String_HPO_${{y}}.phenotypic_branch.g2p_edgelist.txt --reps 100
+                	# python Scripts/snowball_fixed.py --edgelist {input.el} --output {output} --coms {input.coms} --new_edges g2p_Edgelists/String_HPO_${{y}}.phenotypic_branch.g2p_edgelist.txt --reps 100
+			python Scripts/snowball_g_p_specific.py --edgelist {input.el} --output {output} --coms {input.coms} --new_edges g2p_Edgelists/String_HPO_${{y}}.phenotypic_branch.g2p_edgelist.txt --reps 100
 		fi
                 """
 
@@ -558,12 +560,12 @@ rule create_bocc_results:
 rule add_snowballing_to_bocc_res:
 	input:
 		bocc='CleanedSplit100BOCCResultsCombined/{hier}.{algo}.{year}.bocc_res.tsv',
-		snow="SnowballResults/snowball.{hier}.{algo}.String_HPO_{year}.phenotypic_branch.tsv"
+		snow="SnowballResultsFixed/snowball.{hier}.{algo}.String_HPO_{year}.phenotypic_branch.tsv"
 	output:
-		'SnowballedCleanedSplit100BOCCResultsCombined/{year}/{hier}.{algo}.{year}.bocc_res.tsv'
+		'SnowballedCleanedSplit100BOCCResultsCombinedFixed/{year}/{hier}.{algo}.{year}.bocc_res.tsv'
 	shell:
 		"""
-		mkdir -p SnowballedCleanedSplit100BOCCResultsCombined/{wildcards.year}
+		mkdir -p SnowballedCleanedSplit100BOCCResultsCombinedFixed/{wildcards.year}
 		python Scripts/add_snowballing_to_bocc.py {input.bocc} {input.snow} {output}
 		"""
 
@@ -573,10 +575,10 @@ rule add_any_new_edge_count_to_bocc_res:
 		subcom='SubComs/{year}/{hier}.{algo}.{year}.coms.txt',
 		g2p=expand('g2p_Edgelists/String_HPO_{year}.phenotypic_branch.g2p_edgelist.txt',year=YEARS_short)
 	output:
-		'AnyNewEdgeCountSnowballedCleanedSplit100BOCCResultsCombined/{year}/{hier}.{algo}.{year}.bocc_res.tsv'
+		'AnyNewEdgeCountSnowballedCleanedSplit100BOCCResultsCombinedFixed/{year}/{hier}.{algo}.{year}.bocc_res.tsv'
 	shell:
 		"""
-		mkdir -p AnyNewEdgeCountSnowballedCleanedSplit100BOCCResultsCombined/{wildcards.year}
+		mkdir -p AnyNewEdgeCountSnowballedCleanedSplit100BOCCResultsCombinedFixed/{wildcards.year}
 		y=$(({wildcards.year}+1))
 		python Scripts/add_any_new_edges_to_bocc.py {input.bocc} {input.subcom} g2p_Edgelists/String_HPO_${{y}}.phenotypic_branch.g2p_edgelist.txt {output}
 		"""
