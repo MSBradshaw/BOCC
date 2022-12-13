@@ -491,6 +491,7 @@ rule BOCC_results:
 		'ResultsBOCC/{year}/paris.{algo}.{year}.bocc_res.tsv'
 	shell:
 		"""
+		mkdir -p ResultsBOCC/{wildcards.year}
 		python BOCC/summarize_clusters.py --coms {input.coms} --alpha 0.05 --mg2 unused_place_holder --graph {input.el} --gnomad_file {input.plof} --out {output}
 		"""
 
