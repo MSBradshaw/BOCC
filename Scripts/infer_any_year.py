@@ -27,7 +27,9 @@ the Biocuration of the .hpoa file. This was what was recommended to me by Peter 
 """
 
 # HPO versions hpo-web@1.7.13 - hpo-obo@2021-10-10
-g2p = pd.read_csv('https://ci.monarchinitiative.org/view/hpo/job/hpo.annotations/lastSuccessfulBuild/artifact/rare-diseases/util/annotation/genes_to_phenotype.txt', sep='\t', comment='#', header=None)
+# og_url= 'https://ci.monarchinitiative.org/view/hpo/job/hpo.annotations/lastSuccessfulBuild/artifact/rare-diseases/util/annotation/genes_to_phenotype.txt'
+url = 'http://purl.obolibrary.org/obo/hp/hpoa/genes_to_phenotype.txt'
+g2p = pd.read_csv(url, sep='\t', comment='#', header=None)
 #anno = pd.read_csv('http://purl.obolibrary.org/obo/hp/hpoa/phenotype.hpoa', sep='\t', comment='#', header=None)
 #anno = pd.read_csv('Resources/phenotype_annotation.tab', sep='\t', comment='#', header=None, dtype=str)
 anno_dict = {'reference':[],"HPO-ID":[],'curators':[]}

@@ -1,6 +1,6 @@
 YEARS = ['2015','2017','2021']
 YEARS = ['2015', '2016', '2017', '2018', '2019', '2020', '2021']
-YEARS = ['2019', '2020', '2021']
+YEARS = ['2019', '2020', '2021','2022']
 YEARS_short = ['2015', '2016', '2017', '2018', '2019', '2020']
 YEARS_short = ['2019', '2020']
 ALGOS = ['greedy','walktrap','infomap','cesna']
@@ -25,7 +25,7 @@ rule all:
 		expand('work/{year}/inferred_genes_to_phenotype.txt',year=YEARS),
 		expand('Clusters/{year}/greedy.{year}.coms.txt',year=YEARS),
 		expand('Clusters/{year}/walktrap.{year}.coms.txt',year=YEARS),
-		expand('g2p_Edgelists/String_HPO_{year}.phenotypic_branch.g2p_edgelist.txt',year=YEARS),
+		#expand('g2p_Edgelists/String_HPO_{year}.phenotypic_branch.g2p_edgelist.txt',year=YEARS),
 		expand('Clusters/{year}/cesna.{year}.coms.txt',year=YEARS),
 		'Algorithms/cesna',
 		expand('Clusters/{year}/infomap.{year}.coms.txt',year=YEARS),
@@ -34,13 +34,13 @@ rule all:
 		expand('SubComs/{year}/louvain.{algo}.{year}.coms.txt',algo=ALGOS,year=YEARS),
 		#expand('ResultsBOCC/{year}/paris.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS),
 		#expand('ResultsBOCC/{year}/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
-		expand("SnowballResults/snowball.{hier}.{algo}.String_HPO_{year}.phenotypic_branch.tsv",algo=ALGOS,year=YEARS_short,hier=HIER_ALGOS),
-		expand('CleanedSplit100BOCCResultsCombined/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
-		expand('SnowballedCleanedSplit100BOCCResultsCombinedFixed/{year}/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
-		expand('AnyNewEdgeCountSnowballedCleanedSplit100BOCCResultsCombinedFixed/{year}/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
-		expand('AverageInteralDegreeCheckResults/{algo}.{year}.coms.txt',year=YEARS,algo=ALGOS),
-		expand('MouseSnowballResults/snowball.{hier}.{algo}.String_HPO_2021.mouse.phenotypic_branch.tsv', hier=HIER_ALGOS, algo=ALGOS),
-		expand('SnowballResultsFixed/snowball.paris.{algo}.String_HPO_{year}.phenotypic_branch.tsv',algo=ALGOS,year=YEARS)
+		#expand("SnowballResults/snowball.{hier}.{algo}.String_HPO_{year}.phenotypic_branch.tsv",algo=ALGOS,year=YEARS_short,hier=HIER_ALGOS),
+		#expand('CleanedSplit100BOCCResultsCombined/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
+		#expand('SnowballedCleanedSplit100BOCCResultsCombinedFixed/{year}/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
+		#expand('AnyNewEdgeCountSnowballedCleanedSplit100BOCCResultsCombinedFixed/{year}/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
+		#expand('AverageInteralDegreeCheckResults/{algo}.{year}.coms.txt',year=YEARS,algo=ALGOS),
+		#expand('MouseSnowballResults/snowball.{hier}.{algo}.String_HPO_2021.mouse.phenotypic_branch.tsv', hier=HIER_ALGOS, algo=ALGOS),
+		#expand('SnowballResultsFixed/snowball.paris.{algo}.String_HPO_{year}.phenotypic_branch.tsv',algo=ALGOS,year=YEARS)
 
 """
 --- Collect The Data ---
@@ -53,10 +53,11 @@ rule download_hpo:
 		hp15='work/2015/hp.obo',
 		hp16='work/2016/hp.obo',
 		hp17='work/2017/hp.obo',
-		hp21='work/2021/hp.obo',
 		hp18='work/2018/hp.obo',
 		hp19='work/2019/hp.obo',
-		hp20='work/2020/hp.obo'
+		hp20='work/2020/hp.obo',
+		hp21='work/2021/hp.obo',
+		hp22='work/2022/hp.obo'
 	shell:
 		"""
 		mkdir -p work/2017
@@ -89,6 +90,10 @@ rule download_hpo:
 		mkdir -p work/2020
 		wget --no-check-certificate https://github.com/obophenotype/human-phenotype-ontology/raw/15b018a427667e33bd6e51c136414c17c952795d/hp.obo
 		mv hp.obo {output.hp20}
+
+		mkdir -p work/2022
+		wget --no-check-certificate https://raw.githubusercontent.com/obophenotype/human-phenotype-ontology/65395ade3a3cb1bec2929242cc358484730172c3/hp.obo
+                mv hp.obo {output.hp22}
 		"""
 
 rule download_jenkins:
@@ -101,7 +106,8 @@ rule download_jenkins:
 		j16='work/2016/genes_to_phenotype.txt',
 		j19='work/2019/genes_to_phenotype.txt',
 		j20='work/2020/genes_to_phenotype.txt',
-		j18='work/2018/genes_to_phenotype.txt'
+		j18='work/2018/genes_to_phenotype.txt',
+		j22='work/2022/genes_to_phenotype.txt'
 	log:
 		'logs/download_jenkins.txt'
 	shell:
@@ -122,6 +128,7 @@ rule download_jenkins:
 		mv ALL_SOURCES_ALL_FREQUENCIES_genes_to_phenotype.txt {output.j15} 2>> {log}
 
 		# get the 2021 data
+		# This URL is no longer accessible, this change was discovered by Michael on Dec 6 2022
 		wget --no-check-certificate https://ci.monarchinitiative.org/view/hpo/job/hpo.annotations/11/artifact/rare-diseases/util/annotation/genes_to_phenotype.txt 2>> {log}
 		cat genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.j21} 2>> {log}
 		rm genes_to_phenotype.txt 2>> {log}
@@ -147,6 +154,11 @@ rule download_jenkins:
 		python Scripts/infer_2018.py 2>> {log}
 		cat genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.j18} 2>> {log}
 		rm genes_to_phenotype.txt 2>> {log}
+
+		# Current date (2022 at the time of typing this)
+		wget http://purl.obolibrary.org/obo/hp/hpoa/genes_to_phenotype.txt
+		cat genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.j22} 2>> {log}
+                rm genes_to_phenotype.txt 2>> {log}
 		"""
 
 rule download_string:
@@ -159,10 +171,11 @@ rule download_string:
 		s18='work/2018/string_edge_list.txt',
 		s19='work/2019/string_edge_list.txt',
 		s20='work/2020/string_edge_list.txt',
-		s16='work/2016/string_edge_list.txt'
+		s16='work/2016/string_edge_list.txt',
+		s22='work/2022/string_edge_list.txt'
 	shell:
 		"""
-		for x in $(seq 2015 2021);
+		for x in $(seq 2015 2022);
 		do
 			mkdir -p work/$x
 		done
@@ -178,6 +191,8 @@ rule download_string:
 		wget --no-check-certificate https://stringdb-static.org/download/protein.links.v11.5/9606.protein.links.v11.5.txt.gz
 		gunzip 9606.protein.links.v11.5.txt.gz
 		mv 9606.protein.links.v11.5.txt {output.s21}
+		# There has been no update since 2021
+		cp {output.s21} {output.s22}
 
 		# 2020 and 2019 are from different web pages 11b and 11 of string but route to the same list of protein links
 		wget --no-check-certificate https://stringdb-static.org/download/protein.links.v11.0/9606.protein.links.v11.0.txt.gz
@@ -350,6 +365,7 @@ rule infer_all_jenkins_years:
 		ij19='work/2019/inferred_genes_to_phenotype.txt',
 		ij20='work/2020/inferred_genes_to_phenotype.txt',
 		ij21='work/2021/inferred_genes_to_phenotype.txt',
+		ij22='work/2022/inferred_genes_to_phenotype.txt'
 	shell:
 		"""
 		python Scripts/infer_any_year.py --year 2016 --output inferred_genes_to_phenotype.txt
@@ -386,7 +402,10 @@ rule infer_all_jenkins_years:
 		cat inferred_genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.ij21}
 		rm inferred_genes_to_phenotype.txt
 		echo "21 done"
-		
+
+		python Scripts/infer_any_year.py --year 2023 --output inferred_genes_to_phenotype.txt
+		cat inferred_genes_to_phenotype.txt | awk '{{print $1"\t"$2"\t"$4"\t"$3}}' > {output.ij22}
+		echo "22 done"
 		"""
 
 rule paris_crosses:
