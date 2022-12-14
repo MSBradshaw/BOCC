@@ -10,6 +10,9 @@ import networkx as nx
 from cdlib import NodeClustering
 from statistics import median, stdev
 from statistics import StatisticsError
+import time
+
+GO_ENRICHMENT_CACHE = {}
 
 class BOCC:
     """
@@ -73,6 +76,10 @@ class BOCC:
             return self.go_results
         self.get_genes()
 
+        gs = list(self.genes)
+        gs.sort()
+        # check for cached gene sets, this will speed up cesna (probably) 
+        
         g_string = ','.join(self.genes)
         url = 'http://pantherdb.org/services/oai/pantherdb/enrich/overrep?geneInputList=' + g_string + \
               '&organism=9606&annotDataSet=GO%3A0008150&enrichmentTestType=FISHER&correction=FDR'
@@ -82,10 +89,25 @@ class BOCC:
             self.go_results = pd.DataFrame()
             return pd.DataFrame()
         if len(self.genes) == 0:
-            print('No genes for API request')
+            print('No genes for API request')                
             self.go_results = pd.DataFrame()
             return pd.DataFrame()
-        resp = requests.get(url)
+        print('Sending Request')
+        # use 3 attempts to get the request before erroring out
+
+        for i in range(3):
+            print('request attempt ',str(i))
+            try:
+                resp = requests.get(url, timeout=60)
+                break
+            except requests.exceptions.RequestException as e:
+                if i == 2:
+                    print('Final attempt error')
+                    raise(e)
+                print('Time out error, sleeping for 3 minutes then re-attempting')
+                time.sleep(180)
+
+        print('Got request')
         resp_obj = json.loads(resp.content)
 
         results = {'number_in_list': [],
@@ -566,8 +588,10 @@ def summarize_clusters(clusters: typing.List[BOCC], G: nx.Graph, mygene2_file: s
     :param p_tresh: threshold to be used for go term significance
     :return: pd.DataFrame of biologically relevant information for each cluster
     """
+    print('BOCC/BOCC.py summarize_clusters')
     df = None
     for c in clusters:
+        print('Cluster ID',str(c.name))
         if len(c.members) < 3:
             continue
         if len(c.get_genes()) == len(c.members) or len(c.get_genes())  == 0:
