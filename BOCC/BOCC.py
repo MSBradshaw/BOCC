@@ -11,6 +11,7 @@ from cdlib import NodeClustering
 from statistics import median, stdev
 from statistics import StatisticsError
 import time
+import urllib3
 
 GO_ENRICHMENT_CACHE = {}
 
@@ -100,7 +101,7 @@ class BOCC:
             try:
                 resp = requests.get(url, timeout=60)
                 break
-            except requests.exceptions.RequestException as e:
+            except (requests.exceptions.RequestException, urllib3.exceptions.ReadTimeoutError)  as e:
                 if i == 2:
                     print('Final attempt error')
                     raise(e)

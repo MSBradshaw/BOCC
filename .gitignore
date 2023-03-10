@@ -30,3 +30,4 @@ paris.all.2021.coms.named_hpos.non_trivial.grouped.txt
 paris.all.2021.coms.named_hpos.txt
 predictions_from_2019_fit.csv
 xgboost_results.csv
+.*
