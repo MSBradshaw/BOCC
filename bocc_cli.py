@@ -9,6 +9,19 @@ import time
 from multiprocessing import Pool
 import os
 
+# create a function to load a bed file as a pysam tabix object
+def load_bed(bed_path:str) -> pysam.TabixFile:
+    return pysam.TabixFile(bed_path)
+
+# create a fucnction to check if a file is a .bed.gz or .vcf.gz file
+def load_variants(file_path:str) -> str:
+    if file_path.endswith('.bed.gz'):
+        return load_bed(file_path)
+    elif file_path.endswith('.vcf.gz'):
+        return read_vcf(file_path)
+    else:
+        raise ValueError('The file specified with --vcf (-v) must be a .bed.gz or .vcf.gz file')
+
 # create a function that reads the VCF file that is bgzipped as a pytabix object
 def read_vcf(vcf_path:str) -> pysam.VariantFile:
     return pysam.VariantFile(vcf_path)
@@ -20,14 +33,15 @@ def parse_args() -> argparse.Namespace:
                                                     ' The code then finds the genes that are affected by the variants in the VCF file,'
                                                     ' finds the BOCC clusters that contain the affected genes and the HPO terms, and writes the matches  a file in the output directory.'
                                                     'The code also checks if the matches already exist in the edgelist file, and writes those matches to a separate file.')
-    parser.add_argument('-v', '--vcf', required=True, help='Path to the VCF file')
+    parser.add_argument('-v', '--vcf', required=True, help='Path to the tabixed and BGZipped VCF file. Alternatively you an also provide a tabixed and BGZipped Bed file')
     parser.add_argument('-g', '--genes', required=True, help='Path to a .bed file that lists the genes, the 4th column should contain the gene name')
     parser.add_argument('-p', '--hpos', required=True, help='Path to the file with HPO terms, one per line')
     parser.add_argument('-c', '--clusters', required=True, help='path to the file with the clusters file')
     parser.add_argument('-o', '--output', required=True, help='where to write the output dirrectory')
     parser.add_argument('-e', '--edgelist', required=True, help='Path to the edgelist file')
+    parser.add_argument('--verbose', required=False, default=False, action='store_true', help='Path to the edgelist file')
     # add a parameter for the number of processes to use
-    parser.add_argument('-n', '--num_processes', required=False, default=1, help='Number of processes to use')
+    parser.add_argument('-n', '--num_processes', required=False, type=int, default=1, help='Number of processes to use')
     return parser.parse_args()
 
 # create a function that reads the genes file as a tabix object 
@@ -35,12 +49,22 @@ def read_genes(genes_path:str) -> TabixFile:
     return TabixFile(genes_path)
     
 # create a function that find the intersecting genes for each record in the VCF file
-def find_intersection(genes:TabixFile, vcf:pysam.VariantFile) -> typing.Set[str]:
+def find_intersection(genes:TabixFile, vcf:pysam.VariantFile, verbose:bool=False) -> typing.Set[str]:
     affected_genes = set()
     for record in vcf.fetch():
-        for gene_string in genes.fetch(record.chrom, record.pos, record.pos+1):
+        # check if the record is a string or a pysam variant record
+        if type(record) == str:
+            chrom = record.split('\t')[0]
+            start = int(record.split('\t')[1])
+            end = int(record.split('\t')[2])
+        else:
+            chrom = record.chrom
+            start = record.pos
+            end = record.pos+1
+        for gene_string in genes.fetch(chrom, start, end):
             gene = gene_string.split('\t')
             affected_genes.add(gene[3])
+            print(gene[3], chrom, start, end)
     return affected_genes
 
 # create a function that searchs for pairs of HPOs and affected genes in side the .members object of each BOCC cluster
@@ -109,9 +133,10 @@ def check_dir(dir_path:str) -> None:
 
 def main():
     args = parse_args()
-    vcf =   read_vcf(args.vcf)
+    vcf =   load_variants(args.vcf)
     genes = read_genes(args.genes)
-    affect_genes = find_intersection(genes, vcf)
+    affect_genes = find_intersection(genes, vcf, args.verbose)
+    print('Affected Genes',affect_genes)
     clusters = load_clusters(args.clusters)
     hpos = load_hpos(args.hpos)
     G = read_edgelist(args.edgelist)
