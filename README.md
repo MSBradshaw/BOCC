@@ -30,6 +30,14 @@ Download clusters
 
 `wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1ZfjtKn3PxB8tTe0kg-OxH5BJlvcU30fz' -O all_clusters.2022.txt `
 
+Download example data
+
+```
+wget https://raw.githubusercontent.com/MSBradshaw/BOCC/cli/Example/test.hpo.txt
+wget https://github.com/MSBradshaw/BOCC/raw/cli/Example/test.vcf.gz
+wget https://github.com/MSBradshaw/BOCC/raw/cli/Example/test.vcf.gz.tbi
+```
+
 Configure environment
 
 `conda env create -f  env.yml`
