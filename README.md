@@ -82,4 +82,13 @@ We are committed to open reproducible science. To best facilitate the reproducib
 
 ### Conda Env
 
+`conda env create -f  reproduction.env.yml`
+
 ### Command to start it
+
+```
+conda activate reproduce_bocc
+snakemake -s run_everything.smk --cores 64
+```
+
+This pipeline will produce the clusters them selves and .tsv files containing the features used by XGBoost for usefulness predictions. The training, testing and use of XGBoost reproduction can be found [here](https://github.com/ConGibbs10/BOCCRank).
