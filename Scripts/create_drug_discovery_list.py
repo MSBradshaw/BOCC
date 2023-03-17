@@ -1,4 +1,3 @@
-import networkx as nx
 # create a list of gene -> hpo that pass through a drug
 
 # load the HPO to MESH Mapping
@@ -50,17 +49,3 @@ print(len(d2d2g))
 with open('Resources/drug_edges.txt','w') as outfile:
     for r in d2d2g:
         outfile.write('\t'.join(r) + '\n') 
-        
-        
-G22 = nx.read_edgelist('Edgelists/String_HPO_2022.phenotypic_branch.edgelist.txt')
-know_drug_edges = []
-new_drug_edges = []
-for edge in d2d2g:
-    if G22.has_edge(edge[0],edge[1]):
-        know_drug_edges.append(edge)
-    else:
-        new_drug_edges.append(edge)
-
-with open('Resources/new_drug_edges.txt','w') as outfile:
-    for r in new_drug_edges:
-        outfile.write('\t'.join(r) + '\n')
