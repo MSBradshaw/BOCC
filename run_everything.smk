@@ -601,8 +601,8 @@ rule create_bocc_results:
 	shell:
 		"""
 		touch .start.txt
-		snakemake -s prepare_subcoms.snake --cores 10
-		snakemake -s generate_bocc_results.snake --cores 20
+		snakemake -s prepare_subcoms.smk --cores 10
+		snakemake -s generate_bocc_results.smk --cores 20
 		"""
 
 rule add_snowballing_to_bocc_res:
