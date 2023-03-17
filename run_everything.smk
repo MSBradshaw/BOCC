@@ -1,8 +1,5 @@
-YEARS = ['2015','2017','2021']
-YEARS = ['2015', '2016', '2017', '2018', '2019', '2020', '2021']
 YEARS = ['2019', '2020', '2021','2022']
-YEARS_short = ['2015', '2016', '2017', '2018', '2019', '2020']
-YEARS_short = ['2019', '2020']
+YEARS_short = ['2019', '2020','2021']
 ALGOS = ['greedy','walktrap','infomap','cesna']
 HIER_ALGOS = ['paris','ward','louvain']
 HIER_ALGOS = ['paris']
@@ -25,7 +22,7 @@ rule all:
 		expand('work/{year}/inferred_genes_to_phenotype.txt',year=YEARS),
 		expand('Clusters/{year}/greedy.{year}.coms.txt',year=YEARS),
 		expand('Clusters/{year}/walktrap.{year}.coms.txt',year=YEARS),
-		#expand('g2p_Edgelists/String_HPO_{year}.phenotypic_branch.g2p_edgelist.txt',year=YEARS),
+		expand('g2p_Edgelists/String_HPO_{year}.phenotypic_branch.g2p_edgelist.txt',year=YEARS),
 		expand('Clusters/{year}/cesna.{year}.coms.txt',year=YEARS),
 		'Algorithms/cesna',
 		expand('Clusters/{year}/infomap.{year}.coms.txt',year=YEARS),
@@ -33,14 +30,17 @@ rule all:
 		expand('SubComs/{year}/ward.{algo}.{year}.coms.txt',algo=ALGOS,year=YEARS),
 		expand('SubComs/{year}/louvain.{algo}.{year}.coms.txt',algo=ALGOS,year=YEARS),
 		#expand('ResultsBOCC/{year}/paris.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS),
+		expand('ResultsBOCC/{year}/paris.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=['2022']),
+		expand('DrugRediscovery/snowball.{hier}.{algo}.String_HPO_2022.phenotypic_branch.tsv',algo=ALGOS,hier=HIER_ALGOS),
 		#expand('ResultsBOCC/{year}/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
 		#expand("SnowballResults/snowball.{hier}.{algo}.String_HPO_{year}.phenotypic_branch.tsv",algo=ALGOS,year=YEARS_short,hier=HIER_ALGOS),
 		#expand('CleanedSplit100BOCCResultsCombined/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
-		#expand('SnowballedCleanedSplit100BOCCResultsCombinedFixed/{year}/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
-		#expand('AnyNewEdgeCountSnowballedCleanedSplit100BOCCResultsCombinedFixed/{year}/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
+		expand('SnowballedCleanedSplit100BOCCResultsCombinedFixed/{year}/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS,hier=HIER_ALGOS),
+		expand('AnyNewEdgeCountSnowballedCleanedSplit100BOCCResultsCombinedFixed/{year}/{hier}.{algo}.{year}.bocc_res.tsv',algo=ALGOS,year=YEARS_short,hier=HIER_ALGOS),
 		#expand('AverageInteralDegreeCheckResults/{algo}.{year}.coms.txt',year=YEARS,algo=ALGOS),
 		#expand('MouseSnowballResults/snowball.{hier}.{algo}.String_HPO_2021.mouse.phenotypic_branch.tsv', hier=HIER_ALGOS, algo=ALGOS),
-		#expand('SnowballResultsFixed/snowball.paris.{algo}.String_HPO_{year}.phenotypic_branch.tsv',algo=ALGOS,year=YEARS)
+		expand('SnowballResultsFixed/snowball.paris.{algo}.String_HPO_{year}.phenotypic_branch.tsv',algo=ALGOS,year=YEARS_short),
+		expand('DrugRediscoveryResults/snowball.results.{hier}.{algo}.String_HPO_2022.phenotypic_branch.tsv',algo=ALGOS,hier=HIER_ALGOS)
 
 """
 --- Collect The Data ---
@@ -417,19 +417,19 @@ rule paris_crosses:
 	output:
 		'SubComs/{year}/paris.{algo}.{year}.coms.txt'
 	shell:
+		# this is the real code if you are reading this, put it back
 		"""
-		cp RelabeledSubComs/{wildcards.year}/paris.{wildcards.algo}.{wildcards.year}.coms.txt {output}
-		"""
-# this is the real code if you are reading this, put it back
-"""
 		echo "paris " {input.el} {input.com}
 		mkdir -p SubComs
 		mkdir -p SubComs/{wildcards.year}
 		python Scripts/hierarchical_clustering.py --edgelist {input.el}  --algo paris --coms {input.com} --output SubComs/{wildcards.year}/tmp.paris.{wildcards.algo}.{wildcards.year} --com_size 100
 		python Scripts/aggregate_size.py SubComs/{wildcards.year} tmp.paris > {output}
 		rm SubComs/{wildcards.year}/tmp.paris.*
-"""
+		"""
 
+"""
+		cp RelabeledSubComs/{wildcards.year}/paris.{wildcards.algo}.{wildcards.year}.coms.txt {output}
+"""
 rule ward_crosses:
 	input:
 		el='Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt',
@@ -439,17 +439,17 @@ rule ward_crosses:
 		'SubComs/{year}/ward.{algo}.{year}.coms.txt'
 	shell:
 		"""
-			cp RelabeledSubComs/{wildcards.year}/ward.{wildcards.algo}.{wildcards.year}.coms.txt {output}
-		"""
-"""
                 mkdir -p SubComs
                 mkdir -p SubComs/{wildcards.year}
 		echo "ward " {input.el} {input.com}
                 python Scripts/hierarchical_clustering.py --edgelist {input.el}  --algo ward --coms {input.com} --output SubComs/{wildcards.year}/tmp.ward.{wildcards.algo}.{wildcards.year} --com_size 100
                 python Scripts/aggregate_size.py SubComs/{wildcards.year} tmp.ward > {output}
                 rm SubComs/{wildcards.year}/tmp.ward.*
-"""
+		"""
 
+"""
+			cp RelabeledSubComs/{wildcards.year}/ward.{wildcards.algo}.{wildcards.year}.coms.txt {output}
+"""
 rule louvain_crosses:
 	input:
 		el='Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt',
@@ -459,17 +459,13 @@ rule louvain_crosses:
 		'SubComs/{year}/louvain.{algo}.{year}.coms.txt'
 	shell:
 		"""
-			cp RelabeledSubComs/{wildcards.year}/louvain.{wildcards.algo}.{wildcards.year}.coms.txt {output}
-		"""
-
-"""
+		#cp RelabeledSubComs/{wildcards.year}/louvain.{wildcards.algo}.{wildcards.year}.coms.txt {output}
                 mkdir -p SubComs
                 mkdir -p SubComs/{wildcards.year}
                 python Scripts/hierarchical_clustering.py --edgelist {input.el}  --algo louvain --coms {input.com} --output SubComs/{wildcards.year}/tmp.louvain.{wildcards.algo}.{wildcards.year} --com_size 100
                 python Scripts/aggregate_size.py SubComs/{wildcards.year} tmp.louvain > {output}
                 rm SubComs/{wildcards.year}/tmp.louvain.*
-"""
-
+		"""
 rule g2p_edge_lists:
 	input:
 		el='Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt'
@@ -545,6 +541,38 @@ rule snowball_mouse:
 		python Scripts/snowball.py --edgelist {input.el} --output {output} --coms {input.coms} --new_edges {input.mouse_g2p} --reps 100
 		"""
 
+rule make_drug_list:
+	input:
+	output:
+		"Resources/new_drug_edges.txt"
+	shell:
+		"""
+		python Scripts/create_drug_discovery_list.py
+		"""
+
+rule snowball_drugs:
+	input:
+		el='Edgelists/String_HPO_2021.phenotypic_branch.edgelist.txt',
+		coms='SubComs/2022/{hier}.{algo}.2022.coms.txt',
+		mouse_g2p='Resources/new_drug_edges_sampled.txt'
+	output:
+		"DrugRediscovery/snowball.{hier}.{algo}.String_HPO_2022.phenotypic_branch.tsv"
+	shell:
+		"""
+		mkdir -p DrugRediscovery
+		python Scripts/snowball_fixed.py --edgelist {input.el} --output {output} --coms {input.coms} --new_edges {input.mouse_g2p} --reps 100
+		"""
+
+rule snowball_drugs_results:
+	input:
+		'DrugRediscovery/snowball.{hier}.{algo}.String_HPO_2022.phenotypic_branch.tsv'
+	output:
+		'DrugRediscoveryResults/snowball.results.{hier}.{algo}.String_HPO_2022.phenotypic_branch.tsv'
+	shell:
+		"""
+		python Scripts/add_snowballing_drug_results.py {input} > {output}
+		"""
+
 rule snowball_fixed:
         input:
                 el='Edgelists/String_HPO_{year}.phenotypic_branch.edgelist.txt',
@@ -556,7 +584,7 @@ rule snowball_fixed:
                 """
                 mkdir -p SnowballResultsFixed
 		y=$(({wildcards.year}+1))
-                if [ $y -eq "2022" ]
+                if [ $y -eq "2023" ]
 		then
 			echo "Nada, next year does not exist" > {output}
 		else
@@ -591,7 +619,7 @@ rule add_snowballing_to_bocc_res:
 
 rule add_any_new_edge_count_to_bocc_res:
 	input:
-		bocc='SnowballedCleanedSplit100BOCCResultsCombined/{year}/{hier}.{algo}.{year}.bocc_res.tsv',
+		bocc='SnowballedCleanedSplit100BOCCResultsCombinedFixed/{year}/{hier}.{algo}.{year}.bocc_res.tsv',
 		subcom='SubComs/{year}/{hier}.{algo}.{year}.coms.txt',
 		g2p=expand('g2p_Edgelists/String_HPO_{year}.phenotypic_branch.g2p_edgelist.txt',year=YEARS_short)
 	output:
