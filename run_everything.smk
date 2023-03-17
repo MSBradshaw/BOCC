@@ -640,7 +640,7 @@ rule check_avg_internal_degree_of_parent_clusters:
 	shell:
 		"""
 		mkdir -p AverageInteralDegreeCheckResults
-		python average_interal_degree.py {input.com} {input.el} > {output}
+		python Scripts/average_interal_degree.py {input.com} {input.el} > {output}
 		"""
 
 
