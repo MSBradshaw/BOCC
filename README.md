@@ -86,7 +86,7 @@ We are committed to open and reproducible science. To best facilitate the reprod
 
 ### Reproduce Results
 
-The figures and tables seen in the article can be reproduced with the jupyter notebooks in `Experiemnts`.
+The figures and tables seen in the article can be reproduced with the jupyter notebooks in `Experiments`.
 
 ### Reproduce data & clusters
 
