@@ -78,13 +78,17 @@ BOCC will create the dirrectory specified with `-o` and place in it two files:
 
 ## Reproduce Results
 
-We are committed to open reproducible science. To best facilitate the reproducibiliy of our results we have bundled all of our methods into a snakemake pipeline and accompanying conda enviroment. Fair warning just because it is reproducible does not mean it is quick. The graph we repretendly cluster is large and some of the algorithms are slow and can take a week or more to complete even with 64 cores running in parallel. Generating the results depends on the Panther API for enrichment analysis which can also be an extremely slow processes and is prone to blocking IP addresses if you are try making more than 20 requests at the same time, FYI.
+We are committed to open and reproducible science. To best facilitate the reproducibiliy of our results we have bundled all of our methods into a snakemake pipeline and accompanying conda enviroment. Fair warning just because it is reproducible does not mean it is quick. The graph we repretendly cluster is large and some of the algorithms are slow and can take a week or more to complete even with 64 cores running in parallel. Generating the results depends on the Panther API for enrichment analysis which can also be an extremely slow processes and is prone to blocking IP addresses if you are try making more than 20 requests at the same time, FYI.
 
 ### Conda Env
 
 `conda env create -f  reproduction.env.yml`
 
-### Command to start it
+### Reproduce Results
+
+The figures and tables seen in the article can be reproduced with the jupyter notebooks in `Experiments`.
+
+### Reproduce data & clusters
 
 ```
 conda activate reproduce_bocc
