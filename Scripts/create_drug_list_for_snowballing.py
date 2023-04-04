@@ -121,7 +121,10 @@ def select_edges(edges,gene_counts,outfile):
         # loop over the edges
         for edge in edges:
             # get the gene
-            gene = edge[1]
+            if 'HP:' in edge[0]:
+                gene = edge[1]
+            else:
+                gene = edge[0]
             # check if the gene is in the gene_counts dict
             if gene in genes:
                 # write the edge to the output file
@@ -149,6 +152,7 @@ def main():
     sampled_gene_counts = sample_to_match_bins(gene_counts2,bs1)
     # plot 3 histograms of the gene counts, each in their own axis
     plot_3_gene_counts(gene_counts2,gene_counts1,sampled_gene_counts,sys.argv[4])
+    print(sampled_gene_counts)
     select_edges(edges2,sampled_gene_counts,'Resources/new_drug_edges_sampled.txt')
 if __name__ == '__main__':
     main()
