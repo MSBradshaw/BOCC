@@ -14,8 +14,11 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import cross_val_score
 import sklearn
 import pickle
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-NUM_JOBS = 8
+
+NUM_JOBS = 32
 HYPERPARAMS = {
         'learning_rate': list(x/1000 for x in range(1,1000,5)), # 0.0001 to 0.999 by increments of 0.005 
         'gamma': list(x/100 for x in range(1,100,5)) + list(range(1,11,1)), # 0.01 to 1 by .05 and 1 to 10 by 1
@@ -35,10 +38,28 @@ def load_data(file_path):
         data = data.drop(name,axis=1)    
     # pop the snowballing_pvalue column
     labels = list(data.pop('snowballing_pvalue'))
-    # for col in data.columns:
-    #     print(col)
-    #     print(data[col])
-    #     print('\n\n')
+    with open('features.tsv','w') as f:
+        f.write('Feature\tMin-Max\tMean\tMedian\n')
+        for col in data.columns:
+            minv = np.min(data[col])
+            maxv = np.max(data[col])
+            medianv = np.median(data[col])
+            meanv = np.mean(data[col])
+            # if min is not Nan round it
+            if not np.isnan(minv):
+                minv = round(minv,3)
+            # if max is not Nan round it
+            if not np.isnan(maxv):
+                maxv = round(maxv,3)
+            # if median is not Nan round it
+            if not np.isnan(medianv):
+                medianv = round(medianv,3)
+            # if mean is not Nan round it
+            if not np.isnan(meanv):
+                meanv = round(meanv,3)
+            f.write('{}\t{}-{}\t{}\t{}\n'.format(col,minv,maxv,meanv,medianv))
+            # print(data[col])
+            # print('\n\n')
     return data, labels
 
 def load_files(files):
@@ -72,13 +93,40 @@ def train_model(X, y):
         pickle.dump(gs.best_estimator_,f)
     
 
+def plot_feature_correlation(X,outfile):
+    # plot the correlation matrix
+    corr = X.corr()
+    fig, ax = plt.subplots(figsize=(10,10))
+    # sns.heatmap(corr, 
+    #         xticklabels=corr.columns,
+    #         yticklabels=corr.columns,ax=ax,cmap='vlag')
+    # plot the correlation matrix as a clustermap
+    sns.clustermap(corr,
+            xticklabels=corr.columns,
+            yticklabels=corr.columns,
+            cmap='vlag')
+    plt.tight_layout()
+    plt.savefig(outfile)
+    # print all pairs in the matrix with correlation > 0.9 or < -0.9
+    for i in range(corr.shape[0]):
+        for j in range(i+1,corr.shape[1]):
+            if corr.iloc[i,j] > 0.9 or corr.iloc[i,j] < -0.9:
+                print(corr.index[i],corr.columns[j],corr.iloc[i,j])
+    print()
 
-
+def drop_correlated_features(X):
+    to_drop = ['HPO_ratio','surprise','conductance','significance','edges_inside','expansion']
+    for name in to_drop:
+        X = X.drop(name,axis=1)
+    return X
 
 def main():
     #'FinalBOCCFeatures/2019/paris.infomap.2019.bocc_res.tsv'
     files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
     X19, y19 = load_files(files_2019)
+    plot_feature_correlation(X19,'Figures/feature_correlation.png')
+    X19 = drop_correlated_features(X19)
+    plot_feature_correlation(X19,'Figures/feature_correlation.post_filtering.png')
     assert(X19.shape[0] == len(y19))
     train_model(X19,y19)
     print('Complete')
