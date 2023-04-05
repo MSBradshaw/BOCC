@@ -145,6 +145,8 @@ def main():
     gene_counts2 = count_genes(edges2)
     print(gene_counts2)
     # plot a histogram of the gene counts
+    print('\nGene counts 1',gene_counts1)
+    print()
     bs1 = get_gene_counts_hist_bins(gene_counts1)
     print(bs1)
     bs2 = get_gene_counts_hist_bins(gene_counts2)
