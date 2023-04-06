@@ -12,6 +12,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import cross_val_score
+from sklearn.decomposition import PCA
 import sklearn
 import pickle
 import matplotlib.pyplot as plt
@@ -42,6 +43,7 @@ print(HYPERPARAMS)
 
 def load_data(file_path):
     data = pd.read_csv(file_path,sep='\t')
+    data['algo'] = '.'.join(file_path.split('/')[-1].split('.')[0:2])
     # remove the column cluster_id
     to_drop = ['cluster_id','sig_go_enrichment_terms','go_sig_threshold','max_norm_cell_type_comma_sep_string','num_new_edges_on_any_node','sig_go_enrichment_p_vals','mg2_portion_families_recovered','mg2_not_pairs_count','mg2_pairs_count','max_norm_disease_comma_sep_string','sig_go_enrichment_fdr_corrected_p_vals']
     for name in to_drop:
@@ -51,6 +53,8 @@ def load_data(file_path):
     with open('features.tsv','w') as f:
         f.write('Feature\tMin-Max\tMean\tMedian\n')
         for col in data.columns:
+            if col == 'algo':
+                continue
             minv = np.min(data[col])
             maxv = np.max(data[col])
             medianv = np.median(data[col])
@@ -133,11 +137,71 @@ def drop_correlated_features(X):
     return X
 
 def drop_all_but(X):
-    keepers = ['hub_dominance','avg_embeddedness','cluster_size','gene_ratio','triangle_participation_ratio','avg_internal_degree','max_norm_disease_specificity','internal_edge_density','cut_ratio','sum_plof','newman_girvan_modularity','num_of_diseases']
+    keepers = ['algo', 'hub_dominance','avg_embeddedness','cluster_size','gene_ratio','triangle_participation_ratio','avg_internal_degree','max_norm_disease_specificity','internal_edge_density','cut_ratio','sum_plof','newman_girvan_modularity','num_of_diseases']
     to_drop = [c for c in X.columns if c not in keepers]
     for name in to_drop:
         X = X.drop(name,axis=1)
     return X
+
+def drop_algo(X):
+    to_drop = ['algo']
+    for name in to_drop:
+        X = X.drop(name,axis=1)
+    return X
+
+def plot_pca(X,y):
+    y = [ 0 if i != 1 else 1 for i in y]
+    pca = PCA(n_components=4)
+    
+    fig, ax = plt.subplots(2,2,figsize=(10,10))
+    for i,algo in enumerate(X['algo'].unique()):
+        xi = i//2
+        yi = i%2
+        sub = X[X['algo'] == algo]
+        # sub set y too
+        suby = [j for j,v in zip(y,list(X['algo'] == algo)) if v]
+        subsub = sub.drop('algo',axis=1)
+        X_pca = pca.fit_transform(subsub)
+        ax[xi,yi].scatter(X_pca[:,0],X_pca[:,1],c=suby)
+        ax[xi,yi].set_xlabel('PC1')
+        ax[xi,yi].set_ylabel('PC2')
+        ax[xi,yi].set_title(algo)
+        plt.tight_layout()
+        plt.savefig('Figures/pca_1_2.png')
+    
+    # do the same for PC2 and 3
+    fig, ax = plt.subplots(2,2,figsize=(10,10))
+    for i,algo in enumerate(X['algo'].unique()):
+        xi = i//2
+        yi = i%2
+        sub = X[X['algo'] == algo]
+        suby = [j for j,v in zip(y,list(X['algo'] == algo)) if v]
+        subsub = sub.drop('algo',axis=1)
+        X_pca = pca.fit_transform(subsub)
+        ax[xi,yi].scatter(X_pca[:,1],X_pca[:,2],c=suby)
+        ax[xi,yi].set_xlabel('PC2')
+        ax[xi,yi].set_ylabel('PC3')
+        ax[xi,yi].set_title(algo)
+        plt.tight_layout()
+        plt.savefig('Figures/pca_2_3.png')
+    
+    # and again for PC3 and 4
+    fig, ax = plt.subplots(2,2,figsize=(10,10))
+    for i,algo in enumerate(X['algo'].unique()):
+        xi = i//2
+        yi = i%2
+        sub = X[X['algo'] == algo]
+        suby = [j for j,v in zip(y,list(X['algo'] == algo)) if v]
+        subsub = sub.drop('algo',axis=1)
+        X_pca = pca.fit_transform(subsub)
+        ax[xi,yi].scatter(X_pca[:,2],X_pca[:,3],c=suby)
+        ax[xi,yi].set_xlabel('PC3')
+        ax[xi,yi].set_ylabel('PC4')
+        ax[xi,yi].set_title(algo)
+        plt.tight_layout()
+        plt.savefig('Figures/pca_3_4.png')
+
+
 
 def main():
     #'FinalBOCCFeatures/2019/paris.infomap.2019.bocc_res.tsv'
@@ -149,8 +213,10 @@ def main():
     X19 = drop_all_but(X19)
     plot_feature_correlation(X19,'Figures/feature_correlation.final_selected_features.png')
     assert(X19.shape[0] == len(y19))
+    plot_pca(X19,y19)
     print('Training model')
-    train_model(X19,y19)
+    X19 = drop_algo(X19)
+    # train_model(X19,y19)
     print('Complete')
 
 
