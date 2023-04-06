@@ -20,15 +20,25 @@ import seaborn as sns
 
 NUM_JOBS = 32
 HYPERPARAMS = {
-        'learning_rate': list(x/1000 for x in range(1,1000,5)), # 0.0001 to 0.999 by increments of 0.005 
-        'gamma': list(x/100 for x in range(1,100,5)) + list(range(1,11,1)), # 0.01 to 1 by .05 and 1 to 10 by 1
-        'n_estimators': list(range(1,1001)), # 1-1000
+        'learning_rate': list(x/1000 for x in range(1,100,5)), # 0.0001 to 0.999 by increments of 0.005 
+        'gamma': list(x/100 for x in range(1,100,5)), # 0.01 to 1 by .05 and 1 to 10 by 1
+        'n_estimators': list(range(1,500,10)), # 1-1000
         'max_depth': list(range(1,15)), # depth of trees 1-15
         'max_leaves': list(range(1,5)),
-        'subsample': [ x/100 for x in range(1,101,2)], # .01 - 1 by .02
-        'booster' : ['dart'],
-        'n_jobs': [8]
+        'subsample': [ x/100 for x in range(1,101,5)], # .01 - 1 by .05
+        'booster' : ['dart']
         }
+
+# HYPERPARAMS = {
+#         'learning_rate': [.04,.05], # 0.0001 to 0.999 by increments of 0.005 
+#         'gamma': [0.001,0.002], # 0.01 to 1 by .05 and 1 to 10 by 1
+#         'n_estimators': [100,150], # 1-1000
+#         'max_depth': [1,5,10], # depth of trees 1-15
+#         'max_leaves': [1,2,3],
+#         'subsample': [.01,.05,.2], # .01 - 1 by .02
+#         'booster' : ['dart']
+#         }
+print(HYPERPARAMS)
 
 def load_data(file_path):
     data = pd.read_csv(file_path,sep='\t')
@@ -77,9 +87,11 @@ def load_files(files):
 
 def train_model(X, y):
     # create an xgboost regressor
-    model = xgb.XGBRegressor()
+    model = xgb.XGBRegressor(n_jobs=-1)
     # lets do grid search hyperparameter optimization
-    gs = GridSearchCV(model, HYPERPARAMS, cv=10, n_jobs=NUM_JOBS, verbose=1, scoring='neg_mean_squared_error')
+    print('Starting grid search')
+    gs = GridSearchCV(model, HYPERPARAMS, cv=10, verbose=1, scoring='neg_mean_squared_error')
+    print('Fitting the model')
     # fit the model
     gs.fit(X,y)
     # print the best parameters
@@ -87,9 +99,9 @@ def train_model(X, y):
     # print the best score
     print(gs.best_score_)
     # export the drig search results to a file
-    pd.DataFrame(gs.cv_results_).to_csv('grid_search_results.tsv',sep='\t')
+    pd.DataFrame(gs.cv_results_).to_csv('grid_search_results.smaller.tsv',sep='\t')
     # export the best model as a pickle
-    with open('best_model.pkl','wb') as f:
+    with open('best_model.smaller.pkl','wb') as f:
         pickle.dump(gs.best_estimator_,f)
     
 
@@ -120,18 +132,30 @@ def drop_correlated_features(X):
         X = X.drop(name,axis=1)
     return X
 
+def drop_all_but(X):
+    keepers = ['hub_dominance','avg_embeddedness','cluster_size','gene_ratio','triangle_participation_ratio','avg_internal_degree','max_norm_disease_specificity','internal_edge_density','cut_ratio','sum_plof','newman_girvan_modularity','num_of_diseases']
+    to_drop = [c for c in X.columns if c not in keepers]
+    for name in to_drop:
+        X = X.drop(name,axis=1)
+    return X
+
 def main():
     #'FinalBOCCFeatures/2019/paris.infomap.2019.bocc_res.tsv'
     files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
     X19, y19 = load_files(files_2019)
     plot_feature_correlation(X19,'Figures/feature_correlation.png')
     X19 = drop_correlated_features(X19)
-    plot_feature_correlation(X19,'Figures/feature_correlation.post_filtering.png')
+    plot_feature_correlation(X19,'Figures/feature_correlation.post_correlation_dropping.png')
+    X19 = drop_all_but(X19)
+    plot_feature_correlation(X19,'Figures/feature_correlation.final_selected_features.png')
     assert(X19.shape[0] == len(y19))
+    print('Training model')
     train_model(X19,y19)
     print('Complete')
 
 
-main()
+if __name__ == '__main__':
+    main()
+
 
 # python Scripts/train_model.py
