@@ -107,19 +107,49 @@ def find_hyperparams(X, y):
     with open('best_model.smaller.pkl','wb') as f:
         pickle.dump(gs.best_estimator_,f)
 
-
-def train_model(X, y):
+def grid_search(X, y, downsample=True):
+    # downsample the majority class
+    if downsample:
+        # downsample the majority class
+        # get the indices of the majority class
+        majority_indices = [i for i,x in enumerate(y) if x == 1]
+        # get the indices of the minority class
+        minority_indices = [i for i,x in enumerate(y) if x != 1]
+        # get the number of majority class samples
+        majority_count = len(majority_indices)
+        # get the number of minority class samples
+        minority_count = len(minority_indices)
+        # get the number of samples to downsample the majority class to
+        downsample_count = minority_count
+        # get the indices of the majority class to downsample
+        downsample_indices = random.sample(majority_indices, downsample_count)
+        # get the indices of the minority class
+        upsample_indices = minority_indices
+        # get the indices of the samples to keep
+        keep_indices = downsample_indices + upsample_indices
+        # downsample the majority class
+        X = X.iloc[keep_indices]
+        y = [y[i] for i in keep_indices]
+    # test train split of data
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     # create an xgboost regressor
     model = xgb.XGBRegressor(n_jobs=-1)
     # lets do grid search hyperparameter optimization
     # print('Starting grid search')
-    # gs = GridSearchCV(model, HYPERPARAMS, cv=10, verbose=1, scoring='neg_mean_squared_error')
-    print('Fitting the model')
+    gs = GridSearchCV(model, HYPERPARAMS, cv=10, verbose=1, scoring='neg_mean_squared_error')
+    # print('Fitting the model')
     # fit the model
-    # model.fit(X,y, scoring='neg_mean_squared_error')
-    # cross validate the model
-    scores = cross_val_score(model, X, y, cv=10, scoring='neg_mean_squared_error')
-    print(scores)
+    gs.fit(X_train,y_train)
+    # print the best parameters
+    print('Best parameters')
+    print(gs.best_params_)
+    # print the best score
+    print('Best score')
+    print(gs.best_score_)
+    #pickle the model
+    with open('best_model.pkl','wb') as f:
+        pickle.dump(gs.best_estimator_,f)
+
 
 def train_model_classifier(X, y, normaize=True, downsample=True):
     # turn it into a binary classification problem
@@ -177,8 +207,7 @@ def train_model_classifier(X, y, normaize=True, downsample=True):
     print('tn: {}, fp: {}\n fn: {}, tp: {}'.format(tn, fp, fn, tp))
     print(confusion_matrix(y_test, y_pred))
     return tn, fp, fn, tp, precision_score(y_test, y_pred), recall_score(y_test, y_pred)
-    
-    
+      
 def train_model_regressor(X, y, normaize=True, downsample=True):
     # turn it into a binary classification problem
     # y = [ 1 if x < 0.05 else 0 for x in y]
@@ -226,9 +255,7 @@ def train_model_regressor(X, y, normaize=True, downsample=True):
     y_pred = model.predict(X_test)
     mse = mean_squared_error(y_test, y_pred)
     print('Mean Squred Error', mse)
-    return mse
-
-    
+    return mse, y_pred, y_test
 
 def plot_feature_correlation(X,outfile):
     # plot the correlation matrix
@@ -336,7 +363,6 @@ def find_nan(X):
             print(col)
             print(X[col].isna().sum())
         
-
 def plot_pval_dist(y,year,figname):
     # plot the distribution of p values
     plt.hist(y,bins=20)
@@ -344,7 +370,6 @@ def plot_pval_dist(y,year,figname):
     plt.ylabel('count')
     plt.savefig(figname)
     plt.close()
-
 
 def select_features(X,y,n,downsample=True,normaize=True):
     cols = X.columns
@@ -435,7 +460,6 @@ def find_best_features():
     # save the ranked and sorted results
     df.to_csv('ClassificationResults/selection_results_ranked.csv',index=False)
 
-
 def select_features_regression(X,y,n,downsample=True,normaize=True):
     cols = X.columns
     if downsample:
@@ -482,10 +506,14 @@ def select_features_regression(X,y,n,downsample=True,normaize=True):
     print('Trained MSE', mse)
     return mse, [c for v,c in zip(sfs.get_support(),cols) if v]
 
-def select_all_features_regression(X,y):
+def select_all_features_regression(X,y,outdir='RegressionResults',norm_only=False,downsample_only=False):
     selection_results = {"i":[], "MSE":[], "features":[], "normalized":[], 'downsampled':[]}
     for norm in [True,False]:
+        if norm_only and not norm:
+            continue
         for downsample in [True,False]:
+            if downsample_only and not downsample:
+                continue
             for i in range(1,len(X.columns)-1):
                 # print(i)
                 print(i, norm, downsample)
@@ -498,10 +526,13 @@ def select_all_features_regression(X,y):
                 selection_results['normalized'].append(norm)
                 selection_results['downsampled'].append(downsample)
     selection_results = pd.DataFrame(selection_results)
-    selection_results.to_csv('RegressionResults/selection_results.csv',index=False)
+    # check if the output directory exists
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+    selection_results.to_csv('{}/selection_results.csv'.format(outdir),index=False)
 
-def find_best_features_regression():
-    df = pd.read_csv('RegressionResults/selection_results.csv')
+def find_best_features_regression(outdir='RegressionResults'):
+    df = pd.read_csv('{}/selection_results.csv'.format(outdir))
     # sort my MSE
     df = df.sort_values(by='MSE',ascending=True)
     # print the top 10
@@ -510,7 +541,7 @@ def find_best_features_regression():
     for i in range(5):
         print(df.iloc[i])
     # save the ranked and sorted results
-    df.to_csv('RegressionResults/selection_results_ranked.csv',index=False)
+    df.to_csv('{}/selection_results_ranked.csv'.format(outdir),index=False)
 
 # take two list of features and plot the correlation between each pair
 def plot_2sets_of_feature_correlation(X,set1,set2):
@@ -538,6 +569,324 @@ def plot_2sets_of_feature_correlation(X,set1,set2):
     plt.savefig('Figures/feature_correlation.png')
     plt.clf()
 
+# function to remove all columns whose name contains the substring 'plof'
+def drop_plof(X):
+    cols = [c for c in X.columns if 'plof' not in c]
+    return X[cols]
+
+# function to subset the data to only the columns given in a list
+def subset_data(X,cols):
+    return X[cols]
+
+# plot y pred vs y true and save with a given name
+def plot_y_pred_vs_y_true(y_pred,y_true,title,name):
+    fig, ax = plt.subplots(figsize=(10,10))
+    ax.scatter(y_pred,y_true)
+    ax.set_xlabel('y_pred')
+    ax.set_ylabel('y_true')
+    ax.set_title(title)
+    plt.savefig(name)
+    plt.clf()
+
+# FinalBOCCFeaturesLOF
+# do the same as main but with LOF
+def main_lof():
+    #'FinalBOCCFeatures/2019/paris.infomap.2019.bocc_res.tsv'
+    files_2019 = ['FinalBOCCFeaturesLOF/2019/' + f for f in os.listdir('FinalBOCCFeaturesLOF/2019/')]
+    X19, y19 = load_files(files_2019)
+
+    print(X19.shape)
+    print('num p < .05',len([i for i in y19 if i < .05]))
+    plot_feature_correlation(X19,'Figures/feature_correlation.png')
+    
+    assert(X19.shape[0] == len(y19))
+    find_nan(X19)
+    # plot_pca(X19,y19)
+    X19 = drop_algo(X19)
+    X19 = drop_plof(X19)
+    
+   
+    # # Select All Features for regression
+    select_all_features_regression(X19,y19,'RegressionResultsLOF')
+    find_best_features_regression('RegressionResultsLOF')
+
+def train_and_rank(X_train,y_train,X_test,y_test,outfile,normalize=False,downsample=False):
+    # normalize the data
+    if normalize:
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
+    # downsample the data
+    if downsample:
+        majority_indices = [i for i,x in enumerate(y_train) if x == 1]
+        minority_indices = [i for i,x in enumerate(y_train) if x != 1]
+        minority_count = len(minority_indices)
+        downsample_count = minority_count
+        downsample_indices = random.sample(majority_indices, downsample_count)
+        upsample_indices = minority_indices
+        keep_indices = downsample_indices + upsample_indices
+        X_train = X_train.iloc[keep_indices]
+        y_train = [y_train[i] for i in keep_indices]
+    # train the model
+    model = LinearRegression()
+    model.fit(X_train,y_train)
+    # get the predictions
+    y_pred = model.predict(X_test)
+    # get the MSE
+    mse = mean_squared_error(y_test,y_pred)
+    # get the correlation
+    X_test['emprical_p'] = y_test
+    X_test['predicted_p'] = y_pred
+    # give a rank based on empirical p value
+    X_test = X_test.sort_values(by='emprical_p',ascending=True)
+    X_test['rank'] = range(1,len(X_test)+1)
+    # give a rank based on predicted p value
+    X_test = X_test.sort_values(by='predicted_p',ascending=True)
+    X_test['rank_pred'] = range(1,len(X_test)+1)
+    # plot the ranks
+    fig, ax = plt.subplots(figsize=(10,10))
+    ax.scatter(X_test['rank'],X_test['rank_pred'])
+    ax.set_xlabel('rank')
+    ax.set_ylabel('rank_pred')
+    ax.set_title('Rank vs Rank Pred')
+    plt.savefig(outfile)
+    
+def rank_2020_with_2019():
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    X19, y19 = load_files(files_2019)
+    files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
+    X20, y20 = load_files(files_2020)
+    find_nan(X19)
+    find_nan(X20)
+    X19 = drop_algo(X19)
+    X20 = drop_algo(X20)
+    
+    list1 = ['cluster_size', 'num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_internal_degree', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside', 'hub_dominance', 'sum_plof']
+    list2 = ['max_norm_cell_type_specificity', 'num_of_diseases', 'max_norm_disease_specificity', 'avg_embeddedness', 'conductance', 'cut_ratio', 'normalized_cut', 'expansion', 'triangle_participation_ratio', 'internal_edge_density', 'hub_dominance', 'mean_plof', 'median_plof', 'sum_plof']
+    
+    X19_r1 = subset_data(X19.copy(),list1)
+    X20_r1 = subset_data(X20.copy(),list1)
+    X19_r2 = subset_data(X19.copy(),list2)
+    X20_r2 = subset_data(X20.copy(),list2)
+
+    train_and_rank(X19_r1,y19,X20_r1,y20,'Figures/rank_2020_with_2019.r1.png',normalize=False,downsample=False)
+    train_and_rank(X19_r2,y19,X20_r2,y20,'Figures/rank_2020_with_2019.r2.png',normalize=True,downsample=True)
+
+# function that trains a classifier with optimal features and returns the predictions for ALL the data
+def classifier_train_and_predict_all(X,y,normalize=False,downsample=False):
+    Xog = X.copy()
+    yog = y.copy()
+    # convert y to discrete values
+    y = [1 if x != 1 else 0 for x in y]
+
+    # downsample the data
+    if downsample:
+        majority_indices = [i for i,x in enumerate(y) if x != 1]
+        minority_indices = [i for i,x in enumerate(y) if x == 1]
+        minority_count = len(minority_indices)
+        downsample_count = minority_count
+        downsample_indices = random.sample(majority_indices, downsample_count)
+        upsample_indices = minority_indices
+        keep_indices = downsample_indices + upsample_indices
+        X = X.iloc[keep_indices]
+        y = [y[i] for i in keep_indices]
+    
+    # test train split
+    X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.2,random_state=42)
+
+    # normalize the data
+    scaler = None
+    if normalize:
+        scaler = RobustScaler()
+        scaler.fit(X_train)
+        X_train = scaler.transform(X_train)
+        X_test = scaler.transform(X_test)
+    
+    # train the model
+    model = xgb.XGBClassifier()
+    model.fit(X_train,y_train)
+
+    # print precioson and recall
+    y_pred = model.predict(X_test)
+    print('precision',precision_score(y_test,y_pred))
+    print('recall',recall_score(y_test,y_pred))
+
+    # normalize the Xog
+    if normalize:
+        Xog = scaler.transform(Xog)
+    
+    # get the predictions for all the data
+    y_pred_all = model.predict(Xog)
+    return y_pred_all, model, scaler
+
+# function that trains a regressor
+def train_and_predict_regressor(X,y,normalize=False,downsample=False):
+    Xog = X.copy()
+    yog = y.copy()
+
+    # test train split
+    X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.2,random_state=42)
+
+    # normalize the data
+    scaler = None
+    if normalize:
+        scaler = RobustScaler()
+        scaler.fit(X_train)
+        X_train = scaler.transform(X_train)
+        X_test = scaler.transform(X_test)
+    
+    # train the model
+    model = xgb.XGBRegressor()
+    model.fit(X_train,y_train)
+
+    # print precioson and recall
+    y_pred = model.predict(X_test)
+    print('mean_squared_error',mean_squared_error(y_test,y_pred))
+
+    # normalize the Xog
+    if normalize:
+        Xog = scaler.transform(Xog)
+    
+    # get the predictions for all the data
+    y_pred_all = model.predict(Xog)
+    return y_pred_all, model, scaler
+
+def train_regressor_with_classifier():
+    # load the data
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    X19, y19 = load_files(files_2019)
+    # drop the algorithm column
+    X19 = drop_algo(X19)
+    # drop plof columns
+    X19 = drop_plof(X19)
+    # sebset for classification
+    X19_c = subset_data(X19.copy(),['gene_ratio', 'HPO_ratio', 'num_sig_go_enrichment_terms', 'num_of_diseases', 'max_norm_disease_specificity', 'cut_ratio', 'expansion', 'newman_girvan_modularity', 'edges_inside'])
+
+    y_preds = train_and_predict_all(X19_c,y19,normalize=False,downsample=True)
+
+    # subset X and y based on the predictions
+    X19 = X19.iloc[y_preds == 1]
+    y19 = [y19[i] for i in range(len(y19)) if y_preds[i] == 1]
+
+    # # find best feature set, the results of this are hard coded below since this takes a long time to run
+    # select_all_features_regression(X19,y19,'RegressionTrainedOnClassification',norm_only=False,downsample_only=True)
+    # find_best_features_regression('RegressionTrainedOnClassification')
+
+    # # subset for regression (these feature are those found to be the best from the previous step)
+    X19_r = subset_data(X19.copy(),['cluster_size', 'gene_ratio', 'HPO_ratio', 'num_of_diseases', 'conductance', 'cut_ratio', 'triangle_participation_ratio', 'newman_girvan_modularity', 'internal_edge_density', 'hub_dominance'])
+    y_r_pred = train_and_predict_regressor(X19_r, y19, normalize=False, downsample=True)
+
+    # scatter plot of the predictions vs truth
+    plt.scatter(y19,y_r_pred,alpha=0.5,s=1)
+    plt.xlabel('True')
+    plt.ylabel('Predicted')
+    plt.savefig('Figures/RegressionTrainedOnClassification.png')
+    plt.clf()
+
+# def train a regressor
+def train_regressor(X,y,normalize=False,downsample=False):
+    Xog = X.copy()
+    yog = y.copy()
+
+    # test train split
+    # X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.2,random_state=42)
+
+    # normalize the data
+    scaler = None
+    if normalize:
+        scaler = RobustScaler()
+        scaler.fit(X)
+        X = scaler.transform(X)
+    
+    # train the model
+    model = xgb.XGBRegressor()
+    model.fit(X,y)
+
+    return model, scaler
+
+
+def practical_application(train_paths,test_paths,features_c,features_r,c_norm,c_downsample,r_norm,r_downsample):
+    # load the data
+    X_train, y_train = load_files(train_paths)
+    X_test, y_test = load_files(test_paths)
+    
+    # subset the data
+    X_train_c = subset_data(X_train.copy(),features_c)
+    X_test_c = subset_data(X_train.copy(),features_c)
+    
+    # train the classifier
+    c_y_pred, c_model, c_scaler = classifier_train_and_predict_all(X_train_c,y_train,normalize=c_norm,downsample=c_downsample)
+
+    # subset train based on predictions
+    X_train_r = X_train.iloc[c_y_pred == 1]
+    X_train_r = subset_data(X_train_r.copy(),features_r)
+    y_train = [y_train[i] for i in range(len(y_train)) if c_y_pred[i] == 1]
+    # train the regressor
+    r_model, r_scaler = train_regressor(X_train_r,y_train,normalize=r_norm,downsample=r_downsample)
+
+    # Predict the test data
+    if c_scaler is not None:
+        X_test_c = c_scaler.transform(X_test)
+    else:
+        X_test_c = X_test.copy()
+    X_test_c = subset_data(X_test_c.copy(),features_c)
+    c_y_pred_test = c_model.predict(X_test_c)
+
+    # print the class break down of c_y_pred_test
+    print('Class Breakdown of c_y_pred_test')
+    print(np.bincount(c_y_pred_test.astype(int)))
+
+    # subset c_y_pred_test based on the predictions
+    # X_test_filtered = X_test.iloc[c_y_pred_test == 1]
+    # y_test_filtered = [y_test[i] for i in range(len(y_test)) if c_y_pred_test[i] == 1]
+    
+    # predict the test data
+    if r_scaler is not None:
+        X_test_r = r_scaler.transform(X_test)
+    else:
+        X_test_r = X_test.copy()
+
+    X_test_r = subset_data(X_test_r.copy(),features_r)
+    r_y_pred_test = r_model.predict(X_test_r)
+    
+    # put r_y_pred_test and c_y_pred_test back together and return
+    results = []
+    for i,x in enumerate(c_y_pred_test):
+        if x == 0:
+            results.append(np.inf)
+        else:
+            print(r_y_pred_test[i])
+            results.append(r_y_pred_test[i])
+    assert len(results) == len(c_y_pred_test)
+    # how mnay results are not inf
+    print('num not inf',len([i for i in results if i != np.inf]))
+    # how many total results   
+    print('num total',len(results))
+    # assign a rank to the results, if the result is 0, assign it the rank of the lowest value in the test set
+    results_rank = pd.DataFrame({'result':results,'index':list(range(len(results)))})
+    # sort the df in increasing order
+    results_rank = results_rank.sort_values(by='result',ascending=True)
+    print('increasing order')
+    print(results_rank)
+    # assign a rank to each result allow for ties
+    results_rank['rank'] = results_rank['result'].rank(method='average')
+    print('ranked')
+    print(results_rank)
+    # sort the df in the original order
+    results_rank = results_rank.sort_values(by='index',ascending=True)
+    print('original order')
+    print(results_rank)
+    # return the rank
+    return results_rank['rank'].tolist()
+
+    
+
+            
+
+
+    
+
+
 def main():
     #'FinalBOCCFeatures/2019/paris.infomap.2019.bocc_res.tsv'
     files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
@@ -549,29 +898,151 @@ def main():
     
     assert(X19.shape[0] == len(y19))
     find_nan(X19)
-    plot_pca(X19,y19)
+    # plot_pca(X19,y19)
     X19 = drop_algo(X19)
+    X19 = drop_plof(X19)
     
    
     # # Select All Features:
-    # select_all_features(X19,y19)
-    # find_best_features()
+    select_all_features(X19,y19)
+    find_best_features()
 
     # Regression
     # train_model_regressor(X19,y19,normaize=True,downsample=True)
     select_all_features_regression(X19,y19)
     print()
     find_best_features_regression()
-    list1 = ['cluster_size', 'num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_internal_degree', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside', 'hub_dominance', 'sum_plof']
-    list2 = ['max_norm_cell_type_specificity', 'num_of_diseases', 'max_norm_disease_specificity', 'avg_embeddedness', 'conductance', 'cut_ratio', 'normalized_cut', 'expansion', 'triangle_participation_ratio', 'internal_edge_density', 'hub_dominance', 'mean_plof', 'median_plof', 'sum_plof']
+    # best_regression1 = ['gene_ratio', 'HPO_ratio', 'num_sig_go_enrichment_terms', 'max_norm_cell_type_specificity', 'num_of_diseases', 'max_norm_disease_specificity', 'avg_embeddedness', 'conductance', 'cut_ratio', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside', 'hub_dominance', 'mean_plof']
+    # best_regression2 = ['cluster_size', 'gene_ratio', 'HPO_ratio', 'num_sig_go_enrichment_terms', 'num_of_diseases', 'conductance', 'cut_ratio', 'expansion', 'triangle_participation_ratio', 'surprise', 'newman_girvan_modularity', 'internal_edge_density', 'hub_dominance', 'max_plof', 'mean_plof', 'std_plof']
+    
+    # # subset the data to only the best features
+    # r1_X19 = subset_data(X19.copy(),best_regression1)
+    # r2_X19 = subset_data(X19.copy(),best_regression2)
+
+    # # train the model on the best features
+    # mse1, ypred1, ytest1 = train_model_regressor(r1_X19,y19,normaize=False,downsample=False)
+    # mse2, ypred2, ytest2 = train_model_regressor(r2_X19,y19,normaize=True,downsample=True)
+    
+    # plot_y_pred_vs_y_true(ypred1,ytest1,'Not Downsampled & Not Normalized','Figures/y_pred_vs_y_true_regression1.png')
+    # plot_y_pred_vs_y_true(ypred2,ytest2,'Downsampled & Normalized','Figures/y_pred_vs_y_true_regression2.png')
+    
+    # list1 = ['cluster_size', 'num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_internal_degree', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside', 'hub_dominance', 'sum_plof']
+    # list2 = ['max_norm_cell_type_specificity', 'num_of_diseases', 'max_norm_disease_specificity', 'avg_embeddedness', 'conductance', 'cut_ratio', 'normalized_cut', 'expansion', 'triangle_participation_ratio', 'internal_edge_density', 'hub_dominance', 'mean_plof', 'median_plof', 'sum_plof']
     # plot_2sets_of_feature_correlation(X19,list1,list2)
 
+def read_file(filename, fields_to_add):
+    data = []
+    with open(filename, 'r') as file:
+        for line in file:
+            fields = line.strip().split('\t')
+            tuple_fields = []
+            for i in fields_to_add:
+                tuple_fields.append(fields[i])
+            data.append(tuple(tuple_fields))
+    return data
 
+def get_top_n(scores, n):
+    top_scores = []
+    current_score = None
+    count = 0
+    for i in range(len(scores)):
+        if count >= n:
+            if scores[i][1] == current_score: top_scores.append(scores[i])
+            else: break
+        else:
+            if current_score is None or scores[i][1] > current_score:
+                current_score = scores[i][1]
+            top_scores.append(scores[i])
+            count += 1
+    return top_scores
+
+def intersection_count(list1, list2):
+    set1 = set(list1)
+    set2 = set(list2)
+    return len(set1.intersection(set2))
+
+def get_cdf(data):
+    count, bins_count = np.histogram(data, bins=100)
+    pdf = count / sum(count)
+    cdf = np.cumsum(pdf)
+    return cdf
+
+def top_x_roc(e_file,p_file,outfile):
+    E = read_file(e_file, [0,1])
+    E.sort(key=lambda x: x[1])
+    P = read_file(p_file, [0,1])
+    P.sort(key=lambda x: x[1])
+
+    top_1 = get_top_n(E, 1) 
+    tp_fp = [] 
+    for i in range(1,len(E)):
+        top_E = [x[0] for x in get_top_n(E, i)]
+        top_P = [x[0] for x in get_top_n(P, i)]
+        TP = intersection_count(top_E, top_P)
+        FP = len(top_P) - TP
+        # print(TP,FP)
+        tp_fp.append((TP,FP))
+    print(tp_fp)
+
+    fp = [x[1] for x in tp_fp]
+    tp = [x[0] for x in tp_fp]
+
+    cdf_tp = get_cdf(tp)
+    cdf_fp = get_cdf(fp)
+
+    fig, ax  = plt.subplots()
+    ax.plot(cdf_fp,cdf_tp)
+    ax.set_ylabel('CDF TP')
+    ax.set_xlabel('CDF FP')
+    # remove top and right border
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    plt.savefig(outfile)
+    plt.clf()
+
+def do_19v20_practical_application():
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
+    c_features = ['gene_ratio', 'HPO_ratio', 'num_sig_go_enrichment_terms', 'num_of_diseases', 'max_norm_disease_specificity', 'cut_ratio', 'expansion', 'newman_girvan_modularity', 'edges_inside']
+    r_features = ['cluster_size', 'gene_ratio', 'HPO_ratio', 'num_of_diseases', 'conductance', 'cut_ratio', 'triangle_participation_ratio', 'newman_girvan_modularity', 'internal_edge_density', 'hub_dominance']
+    ranks_20 = practical_application(files_2019,
+                          files_2020,
+                          c_features,
+                          r_features,
+                          c_norm=False,
+                          c_downsample=True,
+                          r_norm=False,
+                          r_downsample=True)
     
-
+    # load the 2020 files and get the p values
+    X20, y20 = load_files(files_2020)
+    # plot the ranks vs their actual p values
+    # plot_ranks_vs_pvalues(ranks_20,y20,'Figures/ranks_vs_pvalues.19v20.png')
+    # create a df of ranks_20 with clusterIDs
+    p_df = pd.DataFrame({'clusterID':list(range(len(y20))),'emprical_p':y20})
+    ranks_df = pd.DataFrame({'clusterID':list(range(len(y20))),'rank':ranks_20})
+    # write p_df to file
+    p_df.to_csv('.pvalues.19v20.tsv',index=False,sep='\t')
+    # write ranks_df to file
+    ranks_df.to_csv('.ranks.19v20.tsv',index=False,sep='\t')
+    top_x_roc('.ranks.19v20.tsv','.pvalues.19v20.tsv','Figures/top_x_roc.19v20.png')
+    
+def start_grid_search():
+    # load the 2019 files
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    X19, y19 = load_files(files_2019)
+    r_features = ['cluster_size', 'gene_ratio', 'HPO_ratio', 'num_of_diseases', 'conductance', 'cut_ratio', 'triangle_participation_ratio', 'newman_girvan_modularity', 'internal_edge_density', 'hub_dominance']
+    # sub set the features
+    X19 = X19[r_features]
+    grid_search(X19,y19)
 
 if __name__ == '__main__':
-    main()
+    start_grid_search()
+    # do_19v20_practical_application()
+    # train_regressor_with_classifier()
+    # main_lof()
+    # main()
+    
 
 
 # python Scripts/train_model.py
