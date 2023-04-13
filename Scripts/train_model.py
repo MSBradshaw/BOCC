@@ -194,7 +194,7 @@ def grid_search_classification(X, y, downsample=True):
     print('Best score')
     print(gs.best_score_)
     #pickle the model
-    with open('best_model.pkl','wb') as f:
+    with open('best_model.classification.pkl','wb') as f:
         pickle.dump(gs.best_estimator_,f)
 
 def train_model_classifier(X, y, normaize=True, downsample=True):
