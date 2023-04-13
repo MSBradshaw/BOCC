@@ -166,8 +166,8 @@ def grid_search(X, y, downsample=True):
 def grid_search_classification(X, y, downsample=True):
     # downsample the majority class
     if downsample:
-        majority_indices = [i for i,x in enumerate(y) if x == 1]
-        minority_indices = [i for i,x in enumerate(y) if x != 1]
+        majority_indices = [i for i,x in enumerate(y) if x != 1]
+        minority_indices = [i for i,x in enumerate(y) if x == 1]
         majority_count = len(majority_indices)
         minority_count = len(minority_indices)
         downsample_count = minority_count
