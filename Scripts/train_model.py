@@ -1224,6 +1224,9 @@ def start_grid_search():
     features = ['gene_ratio', 'HPO_ratio', 'num_sig_go_enrichment_terms', 'num_of_diseases', 'max_norm_disease_specificity', 'cut_ratio', 'expansion', 'newman_girvan_modularity', 'edges_inside']
     # sub set the features
     X19 = X19[features]
+    # threshold y
+    threshold = 1
+    y19 = [1 if p < threshold else 0 for p in y19]
     grid_search_classification(X19,y19)
 
 
