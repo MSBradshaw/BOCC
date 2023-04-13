@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, roc_curve
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import cross_val_score
 from sklearn.decomposition import PCA
@@ -20,6 +20,9 @@ import seaborn as sns
 import random
 from sklearn.preprocessing import RobustScaler
 from sklearn.feature_selection import SequentialFeatureSelector
+
+# import friedmanchisquared
+from scipy import stats
 
 # imoprt precision_score, recall_score, f1_score, roc_auc_score, accuracy_score
 from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, accuracy_score
@@ -39,6 +42,15 @@ HYPERPARAMS = {
         }
 
 print(HYPERPARAMS)
+
+def kendals_w(ranks1,ranks2):
+    assert len(ranks1) == len(ranks2)
+    # source https://www.youtube.com/watch?v=zVufp7cJ8S4
+    fstat = stats.friedmanchisquare(ranks1,ranks2)
+    q = fstat[0]
+    n = len(ranks1)
+    w = q / (n * (k-1))
+    return w
 
 def load_data(file_path):
     data = pd.read_csv(file_path,sep='\t')
@@ -122,6 +134,7 @@ def grid_search(X, y, downsample=True):
         # get the number of samples to downsample the majority class to
         downsample_count = minority_count
         # get the indices of the majority class to downsample
+        print('Downsampling {} samples to {}'.format(majority_count, downsample_count))
         downsample_indices = random.sample(majority_indices, downsample_count)
         # get the indices of the minority class
         upsample_indices = minority_indices
@@ -150,6 +163,39 @@ def grid_search(X, y, downsample=True):
     with open('best_model.pkl','wb') as f:
         pickle.dump(gs.best_estimator_,f)
 
+def grid_search_classification(X, y, downsample=True):
+    # downsample the majority class
+    if downsample:
+        majority_indices = [i for i,x in enumerate(y) if x == 1]
+        minority_indices = [i for i,x in enumerate(y) if x != 1]
+        majority_count = len(majority_indices)
+        minority_count = len(minority_indices)
+        downsample_count = minority_count
+        print('Downsampling {} samples to {}'.format(majority_count, downsample_count))
+        downsample_indices = random.sample(majority_indices, downsample_count)
+        upsample_indices = minority_indices
+        keep_indices = downsample_indices + upsample_indices
+        X = X.iloc[keep_indices]
+        y = [y[i] for i in keep_indices]
+    # test train split of data
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # create an xgboost regressor
+    model = xgb.XGBClassifier(n_jobs=-1)
+    # lets do grid search hyperparameter optimization
+    # print('Starting grid search')
+    gs = GridSearchCV(model, HYPERPARAMS, cv=10, verbose=1, scoring='precision')
+    # print('Fitting the model')
+    # fit the model
+    gs.fit(X_train,y_train)
+    # print the best parameters
+    print('Best parameters')
+    print(gs.best_params_)
+    # print the best score
+    print('Best score')
+    print(gs.best_score_)
+    #pickle the model
+    with open('best_model.pkl','wb') as f:
+        pickle.dump(gs.best_estimator_,f)
 
 def train_model_classifier(X, y, normaize=True, downsample=True):
     # turn it into a binary classification problem
@@ -797,6 +843,20 @@ def train_regressor(X,y,normalize=False,downsample=False):
         scaler = RobustScaler()
         scaler.fit(X)
         X = scaler.transform(X)
+        X = pd.DataFrame(X)
+    
+    # downsample the data
+    if downsample:
+        majority_indices = [i for i,x in enumerate(y) if x == 1]
+        minority_indices = [i for i,x in enumerate(y) if x != 1]
+        minority_count = len(minority_indices)
+        downsample_count = minority_count
+        downsample_indices = random.sample(majority_indices, downsample_count)
+        upsample_indices = minority_indices
+        keep_indices = downsample_indices + upsample_indices
+        X = X.iloc[keep_indices]
+        y = [y[i] for i in keep_indices]
+
     
     # train the model
     model = xgb.XGBRegressor()
@@ -804,6 +864,33 @@ def train_regressor(X,y,normalize=False,downsample=False):
 
     return model, scaler
 
+def train_classifier(X,y,normalize=False,downsample=False):
+    # normalize the data
+    scaler = None
+    if normalize:
+        scaler = RobustScaler()
+        scaler.fit(X)
+        X = scaler.transform(X)
+        X = pd.DataFrame(X)
+    
+    # downsample the data
+    if downsample:
+        majority_indices = [i for i,x in enumerate(y) if x != 1]
+        minority_indices = [i for i,x in enumerate(y) if x == 1]
+        minority_count = len(minority_indices)
+        downsample_count = minority_count
+        downsample_indices = random.sample(majority_indices, downsample_count)
+        upsample_indices = minority_indices
+        keep_indices = downsample_indices + upsample_indices
+        X = X.iloc[keep_indices]
+        y = [y[i] for i in keep_indices]
+
+    
+    # train the model
+    model = xgb.XGBClassifier()
+    model.fit(X,y)
+
+    return model, scaler
 
 def practical_application(train_paths,test_paths,features_c,features_r,c_norm,c_downsample,r_norm,r_downsample):
     # load the data
@@ -878,14 +965,6 @@ def practical_application(train_paths,test_paths,features_c,features_r,c_norm,c_
     print(results_rank)
     # return the rank
     return results_rank['rank'].tolist()
-
-    
-
-            
-
-
-    
-
 
 def main():
     #'FinalBOCCFeatures/2019/paris.infomap.2019.bocc_res.tsv'
@@ -1021,12 +1100,114 @@ def do_19v20_practical_application():
     # create a df of ranks_20 with clusterIDs
     p_df = pd.DataFrame({'clusterID':list(range(len(y20))),'emprical_p':y20})
     ranks_df = pd.DataFrame({'clusterID':list(range(len(y20))),'rank':ranks_20})
+    df = pd.DataFrame({'clusterID':list(range(len(y20))),'predicted_p_rank':ranks_20,'emprical_p':y20})
+    # create a rank columns based on emprical_p
+    df['rank'] = df['emprical_p'].rank(method='min')
+    # sort by clusterID
+    df.sort_values(by=['clusterID'],inplace=True)
     # write p_df to file
     p_df.to_csv('.pvalues.19v20.tsv',index=False,sep='\t')
     # write ranks_df to file
     ranks_df.to_csv('.ranks.19v20.tsv',index=False,sep='\t')
     top_x_roc('.ranks.19v20.tsv','.pvalues.19v20.tsv','Figures/top_x_roc.19v20.png')
+    # calc kendall's W
+    # w = kendals_w(list(df['rank']),list(df['predicted_p_rank']))
+    # print('Classification & Regression', w)
+
+def do_19v20_regression_only_roc():
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
     
+    # load the files
+    X19, y19 = load_files(files_2019)
+    X20, y20 = load_files(files_2020)
+    
+    r_features = ['cluster_size', 'gene_ratio', 'num_of_diseases', 'max_norm_disease_specificity', 'conductance', 'edges_inside', 'hub_dominance']
+    # sub set the features
+    X19 = X19[r_features]
+    X20 = X20[r_features]
+    model, scaler = train_regressor(X19,y19,normalize=True,downsample=True)
+    # predict X20
+    X20 = scaler.transform(X20)
+    y20_pred = model.predict(X20)
+    df = pd.DataFrame({'clusterID':list(range(len(y20))),'predicted_p':y20_pred,'emprical_p':y20})
+    # save df of just clusterID and predicted p values
+    df1 = df[['clusterID','predicted_p']]
+    df1.to_csv('.predicted_p.regression_only.19v20.tsv',index=False,sep='\t')
+    # save df of just clusterID and emprical p values
+    df2 = df[['clusterID','emprical_p']]
+    df2.to_csv('.emprical_p.regression_only.19v20.tsv',index=False,sep='\t')
+    # plot the roc curve
+    top_x_roc('.predicted_p.regression_only.19v20.tsv','.emprical_p.regression_only.19v20.tsv','Figures/roc_curve.regression_only.19v20.png')
+
+    # create columns of ranks based on predicted p values
+    df['rank'] = df['predicted_p'].rank(ascending=False)
+    # create a rank for actual p values
+    df['actual_rank'] = df['emprical_p'].rank(ascending=False)
+    # sort by clusterID
+    df = df.sort_values(by=['clusterID'])
+    # w = kendals_w(list(df['rank']),list(df['actual_rank']))
+    # print('Regression Only', w)
+
+
+def classifier_roc():
+    features = ['gene_ratio', 'HPO_ratio', 'num_sig_go_enrichment_terms', 'num_of_diseases', 'max_norm_disease_specificity', 'cut_ratio', 'expansion', 'newman_girvan_modularity', 'edges_inside']
+    # load the 2019 files
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    X19, y19 = load_files(files_2019)
+    # sub set the features
+    X19 = X19[features]
+    # load the 2020 files
+    files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
+    X20, y20 = load_files(files_2020)
+    og_y20 = y20.copy()
+    # sub set the features
+    X20 = X20[features]
+
+    threshold = 1
+    y19 = [1 if p < threshold else 0 for p in y19]
+    y20 = [1 if p < threshold else 0 for p in y20]
+    # print the number p == 1 in y19
+    print('y19',sum(y19),len(y19))
+    print('y20',sum(y20),len(y20))
+
+    # train the classifier
+    model, scaler = train_classifier(X19,y19,normalize=False,downsample=True)
+    # predict X20
+    if scaler is not None:
+        X20 = scaler.transform(X20)
+        X20 = pd.DataFrame(X20,columns=features)
+    
+    y20_pred = model.predict(X20)
+    y20_probs = model.predict_proba(X20)
+    print(y20_probs)
+    y20_probs = y20_probs[:,1]
+    print(y20_probs)
+
+    print(len(y20_pred))
+    fpr, tpr, thresh = roc_curve(y20,y20_probs)
+
+    print('fpr',fpr)
+    print('tpr',tpr)
+
+    # plot the roc curve
+    plt.plot(fpr,tpr)
+    # plot a diagonal line
+    plt.plot([0,1],[0,1],'k--',c='red')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    # remove top and right spines
+    plt.gca().spines['top'].set_visible(False)
+    plt.gca().spines['right'].set_visible(False)
+    plt.title('19,20 ROC Curve threshold = {}'.format(threshold))
+    plt.savefig('Figures/roc_curve.classifier.19v20.png')
+    plt.clf()
+
+
+
+
+
+
 def start_grid_search():
     # load the 2019 files
     files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
@@ -1036,8 +1217,22 @@ def start_grid_search():
     X19 = X19[r_features]
     grid_search(X19,y19)
 
+def start_grid_search():
+    # load the 2019 files
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    X19, y19 = load_files(files_2019)
+    features = ['gene_ratio', 'HPO_ratio', 'num_sig_go_enrichment_terms', 'num_of_diseases', 'max_norm_disease_specificity', 'cut_ratio', 'expansion', 'newman_girvan_modularity', 'edges_inside']
+    # sub set the features
+    X19 = X19[features]
+    grid_search_classification(X19,y19)
+
+
+
 if __name__ == '__main__':
+    # classifier_roc()
     start_grid_search()
+    # do_19v20_regression_only_roc()
+    # start_grid_search()
     # do_19v20_practical_application()
     # train_regressor_with_classifier()
     # main_lof()
