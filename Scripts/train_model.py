@@ -20,6 +20,9 @@ import seaborn as sns
 import random
 from sklearn.preprocessing import RobustScaler
 from sklearn.feature_selection import SequentialFeatureSelector
+from sklearn_genetic import GASearchCV
+from sklearn_genetic.space import Categorical, Integer, Continuous
+
 
 # import friedmanchisquared
 from scipy import stats
@@ -41,24 +44,35 @@ HYPERPARAMS = {
         'booster' : ['dart']
         }
 
+HYPERPARAMS_Genetic_Algo = {
+        'learning_rate': Continuous(1e-3, 1e-1, distribution='uniform'),
+        'gamma': Continuous(1e-2, 1, distribution='uniform'),
+        'n_estimators': Integer(1, 500),
+        'max_depth': Integer(1, 30),
+        'max_leaves': Integer(1, 5),
+        'subsample': Continuous(1e-2, 1, distribution='uniform'),
+        'booster' : Categorical(['dart'])
+        }
+
 print(HYPERPARAMS)
 
-def kendals_w(ranks1,ranks2):
+def kendals_tau(ranks1,ranks2):
     assert len(ranks1) == len(ranks2)
     # source https://www.youtube.com/watch?v=zVufp7cJ8S4
-    fstat = stats.friedmanchisquare(ranks1,ranks2)
-    q = fstat[0]
-    n = len(ranks1)
-    w = q / (n * (k-1))
-    return w
+    tau, p_value = stats.kendalltau(ranks1,ranks2)
+    return tau, p_value
 
 def load_data(file_path):
+    print(file_path)
     data = pd.read_csv(file_path,sep='\t')
     data['algo'] = '.'.join(file_path.split('/')[-1].split('.')[0:2])
     # remove the column cluster_id
     to_drop = ['significance','cluster_id','sig_go_enrichment_terms','go_sig_threshold','max_norm_cell_type_comma_sep_string','num_new_edges_on_any_node','sig_go_enrichment_p_vals','mg2_portion_families_recovered','mg2_not_pairs_count','mg2_pairs_count','max_norm_disease_comma_sep_string','sig_go_enrichment_fdr_corrected_p_vals']
     for name in to_drop:
-        data = data.drop(name,axis=1)    
+        if name in data.columns:
+            data = data.drop(name,axis=1)
+        else:
+            print('WARNING: {} not in data'.format(name))
     # pop the snowballing_pvalue column
     labels = list(data.pop('snowballing_pvalue'))
     with open('features.tsv','w') as f:
@@ -196,6 +210,40 @@ def grid_search_classification(X, y, downsample=True):
     #pickle the model
     with open('best_model.classification.pkl','wb') as f:
         pickle.dump(gs.best_estimator_,f)
+
+def genetic_optimization_classification(X, y, downsample=True):
+    # downsample the majority class
+    if downsample:
+        majority_indices = [i for i,x in enumerate(y) if x != 1]
+        minority_indices = [i for i,x in enumerate(y) if x == 1]
+        majority_count = len(majority_indices)
+        minority_count = len(minority_indices)
+        downsample_count = minority_count
+        print('Downsampling {} samples to {}'.format(majority_count, downsample_count))
+        downsample_indices = random.sample(majority_indices, downsample_count)
+        upsample_indices = minority_indices
+        keep_indices = downsample_indices + upsample_indices
+        X = X.iloc[keep_indices]
+        y = [y[i] for i in keep_indices]
+    # test train split of data
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # create an xgboost regressor
+    model = xgb.XGBClassifier()
+    # lets do grid search hyperparameter optimization
+    print('Starting genetic algorithm search')
+    go = GASearchCV(estimator=model, cv=10, param_grid=HYPERPARAMS_Genetic_Algo, verbose=True, scoring='precision', n_jobs=10, population_size=100, generations=100)
+    # print('Fitting the model')
+    # fit the model
+    go.fit(X_train,y_train)
+    # print the best parameters
+    print('Best parameters')
+    print(go.best_params_)
+    # print the best score
+    print('Best score')
+    print(go.best_score_)
+    #pickle the model
+    with open('best_model.classification.go.pkl','wb') as f:
+        pickle.dump(go.best_estimator_,f)
 
 def train_model_classifier(X, y, normaize=True, downsample=True):
     # turn it into a binary classification problem
@@ -720,6 +768,7 @@ def rank_2020_with_2019():
 
 # function that trains a classifier with optimal features and returns the predictions for ALL the data
 def classifier_train_and_predict_all(X,y,normalize=False,downsample=False):
+    random.seed(3)
     Xog = X.copy()
     yog = y.copy()
     # convert y to discrete values
@@ -738,7 +787,7 @@ def classifier_train_and_predict_all(X,y,normalize=False,downsample=False):
         y = [y[i] for i in keep_indices]
     
     # test train split
-    X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.2,random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.2,random_state=3)
 
     # normalize the data
     scaler = None
@@ -1095,6 +1144,8 @@ def do_19v20_practical_application():
     
     # load the 2020 files and get the p values
     X20, y20 = load_files(files_2020)
+    print('X2-shape',X20.shape)
+    print('# predicted',len(ranks_20))
     # plot the ranks vs their actual p values
     # plot_ranks_vs_pvalues(ranks_20,y20,'Figures/ranks_vs_pvalues.19v20.png')
     # create a df of ranks_20 with clusterIDs
@@ -1111,8 +1162,9 @@ def do_19v20_practical_application():
     ranks_df.to_csv('.ranks.19v20.tsv',index=False,sep='\t')
     top_x_roc('.ranks.19v20.tsv','.pvalues.19v20.tsv','Figures/top_x_roc.19v20.png')
     # calc kendall's W
-    # w = kendals_w(list(df['rank']),list(df['predicted_p_rank']))
-    # print('Classification & Regression', w)
+    tau, pval = kendals_tau(list(df['rank']),list(df['predicted_p_rank']))
+    print('Kendalls W: ',tau)
+    print('Kenalls p-value: ',pval)
 
 def do_19v20_regression_only_roc():
     files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
@@ -1229,17 +1281,30 @@ def start_grid_search():
     y19 = [1 if p < threshold else 0 for p in y19]
     grid_search_classification(X19,y19)
 
+def start_genetic_algo_search():
+    # load the 2019 files
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    X19, y19 = load_files(files_2019)
+    features = ['gene_ratio', 'HPO_ratio', 'num_sig_go_enrichment_terms', 'num_of_diseases', 'max_norm_disease_specificity', 'cut_ratio', 'expansion', 'newman_girvan_modularity', 'edges_inside']
+    # sub set the features
+    X19 = X19[features]
+    # threshold y
+    threshold = 1
+    y19 = [1 if p < threshold else 0 for p in y19]
+    genetic_optimization_classification(X19, y19, downsample=True)
+
 
 
 if __name__ == '__main__':
     # classifier_roc()
-    start_grid_search()
+    # start_grid_search()
     # do_19v20_regression_only_roc()
     # start_grid_search()
     # do_19v20_practical_application()
     # train_regressor_with_classifier()
     # main_lof()
     # main()
+    start_genetic_algo_search()
     
 
 
