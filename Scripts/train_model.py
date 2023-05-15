@@ -22,7 +22,8 @@ from sklearn.preprocessing import RobustScaler
 from sklearn.feature_selection import SequentialFeatureSelector
 from sklearn_genetic import GASearchCV
 from sklearn_genetic.space import Categorical, Integer, Continuous
-
+from sklearn.metrics import make_scorer
+from scipy.stats import pearsonr
 
 # import friedmanchisquared
 from scipy import stats
@@ -39,22 +40,47 @@ HYPERPARAMS = {
         'gamma': list(x/100 for x in range(1,100,5)), # 0.01 to 1 by .05 and 1 to 10 by 1
         'n_estimators': list(range(1,500,10)), # 1-1000
         'max_depth': list(range(1,15)), # depth of trees 1-15
-        'max_leaves': list(range(1,5)),
+        'max_leaves': list(range(1,10)),
         'subsample': [ x/100 for x in range(1,101,5)], # .01 - 1 by .05
         'booster' : ['dart']
         }
+
+# print the number of combinations of hyperparameters to search
+print('Number of combinations of hyperparameters to search: {}'.format(np.prod([len(x) for x in HYPERPARAMS.values()])))
 
 HYPERPARAMS_Genetic_Algo = {
         'learning_rate': Continuous(1e-3, 1e-1, distribution='uniform'),
         'gamma': Continuous(1e-2, 1, distribution='uniform'),
         'n_estimators': Integer(1, 500),
         'max_depth': Integer(1, 30),
-        'max_leaves': Integer(1, 5),
+        'max_leaves': Integer(1, 10),
         'subsample': Continuous(1e-2, 1, distribution='uniform'),
         'booster' : Categorical(['dart'])
         }
 
-print(HYPERPARAMS)
+HYPERPARAMS_p35 = {'learning_rate': 0.04043818815600482, 'gamma': 0.5713083222302612, 'n_estimators': 196, 'max_depth': 25, 'max_leaves': 2, 'subsample': 0.20159801360534982, 'booster': 'dart'}
+HYPERPARAMS_p1 = {'learning_rate': 0.05272395382072624, 'gamma': 0.36083958112876147, 'n_estimators': 35, 'max_depth': 6, 'max_leaves': 10, 'subsample': 0.7744273119528029, 'booster': 'dart'}
+HYPERPARAMS_p05 = {'learning_rate': 0.055507261946723785, 'gamma': 0.5737961358822451, 'n_estimators': 214, 'max_depth': 6, 'max_leaves': 7, 'subsample': 0.7520797264062326, 'booster': 'dart'}
+HYPERPARAMS_p35_regression = {'learning_rate': 0.06608502330035836, 'gamma': 0.012905252618403522, 'n_estimators': 416, 'max_depth': 8, 'max_leaves': 5, 'subsample': 0.9514669623440667, 'booster': 'dart'}
+# classification params
+classification_params = {'learning_rate': 0.07305940290241641, 
+                         'gamma': 0.3795158439477443, 
+                         'n_estimators': 98, 
+                         'max_depth': 13, 
+                         'max_leaves': 4, 
+                         'subsample': 0.05772500174333884, 
+                         'booster': 'dart'}
+
+# classification params
+regression_params = {'learning_rate': 0.0768765080451186, 
+                     'gamma': 0.9691138788518666, 
+                     'n_estimators': 356, 
+                     'max_depth': 11, 
+                     'max_leaves': 4, 
+                     'subsample': 0.7529052269196642, 
+                     'booster': 'dart'}
+
+just_regression_params = {'learning_rate': 0.011440851730240585, 'gamma': 0.020537510220500793, 'n_estimators': 331, 'max_depth': 7, 'max_leaves': 10, 'subsample': 0.11060470434528673, 'booster': 'dart'}
 
 def kendals_tau(ranks1,ranks2):
     assert len(ranks1) == len(ranks2)
@@ -67,7 +93,7 @@ def load_data(file_path):
     data = pd.read_csv(file_path,sep='\t')
     data['algo'] = '.'.join(file_path.split('/')[-1].split('.')[0:2])
     # remove the column cluster_id
-    to_drop = ['significance','cluster_id','sig_go_enrichment_terms','go_sig_threshold','max_norm_cell_type_comma_sep_string','num_new_edges_on_any_node','sig_go_enrichment_p_vals','mg2_portion_families_recovered','mg2_not_pairs_count','mg2_pairs_count','max_norm_disease_comma_sep_string','sig_go_enrichment_fdr_corrected_p_vals']
+    to_drop = ['significance','sig_go_enrichment_terms','go_sig_threshold','max_norm_cell_type_comma_sep_string','num_new_edges_on_any_node','sig_go_enrichment_p_vals','mg2_portion_families_recovered','mg2_not_pairs_count','mg2_pairs_count','max_norm_disease_comma_sep_string','sig_go_enrichment_fdr_corrected_p_vals']
     for name in to_drop:
         if name in data.columns:
             data = data.drop(name,axis=1)
@@ -231,7 +257,17 @@ def genetic_optimization_classification(X, y, downsample=True):
     model = xgb.XGBClassifier()
     # lets do grid search hyperparameter optimization
     print('Starting genetic algorithm search')
-    go = GASearchCV(estimator=model, cv=10, param_grid=HYPERPARAMS_Genetic_Algo, verbose=True, scoring='precision', n_jobs=10, population_size=100, generations=100)
+    def precision_plus_recall(ground_truth, predictions):
+        precision = precision_score(ground_truth, predictions)
+        recall = recall_score(ground_truth, predictions)
+        return precision + recall
+
+    # loss_func will negate the return value of my_custom_loss_func,
+    #  which will be np.log(2), 0.693, given the values for ground_truth
+    #  and predictions defined below.
+    pr_sum  = make_scorer(precision_plus_recall, greater_is_better=True)
+
+    go = GASearchCV(estimator=model, cv=10, param_grid=HYPERPARAMS_Genetic_Algo, verbose=True, scoring='f1', n_jobs=10, population_size=40, generations=100)
     # print('Fitting the model')
     # fit the model
     go.fit(X_train,y_train)
@@ -242,8 +278,46 @@ def genetic_optimization_classification(X, y, downsample=True):
     print('Best score')
     print(go.best_score_)
     #pickle the model
-    with open('best_model.classification.go.pkl','wb') as f:
+    with open('best_model.classification.f1.go.pkl','wb') as f:
         pickle.dump(go.best_estimator_,f)
+    return go.best_params_, go.best_score_
+
+def genetic_optimization_regression(X, y, downsample=False, threshold=1):
+    # downsample the majority class
+    if downsample:
+        majority_indices = [i for i,x in enumerate(y) if x >= threshold]
+        minority_indices = [i for i,x in enumerate(y) if x < threshold]
+        majority_count = len(majority_indices)
+        minority_count = len(minority_indices)
+        downsample_count = minority_count
+        print('Downsampling {} samples to {}'.format(majority_count, downsample_count))
+        downsample_indices = random.sample(majority_indices, downsample_count)
+        upsample_indices = minority_indices
+        keep_indices = downsample_indices + upsample_indices
+        X = X.iloc[keep_indices]
+        y = [y[i] for i in keep_indices]
+    # test train split of data
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # create an xgboost regressor
+    model = xgb.XGBRegressor()
+    # lets do grid search hyperparameter optimization
+    print('Starting genetic algorithm search')
+    go = GASearchCV(estimator=model, cv=10, param_grid=HYPERPARAMS_Genetic_Algo, verbose=True, scoring='neg_mean_squared_error', n_jobs=10, population_size=40, generations=100)
+    # print('Fitting the model')
+    # fit the model
+    go.fit(X_train,y_train)
+    # print the best parameters
+    print('Best parameters')
+    print(go.best_params_)
+    # print the best score
+    print('Best score')
+    print(go.best_score_)
+    #pickle the model
+    with open('best_model.regression.go.pkl','wb') as f:
+        pickle.dump(go.best_estimator_,f)
+
+    return go.best_params_, go.best_score_
+
 
 def train_model_classifier(X, y, normaize=True, downsample=True):
     # turn it into a binary classification problem
@@ -605,7 +679,7 @@ def select_all_features_regression(X,y,outdir='RegressionResults',norm_only=Fals
     for norm in [True,False]:
         if norm_only and not norm:
             continue
-        for downsample in [True,False]:
+        for downsample in [True]:
             if downsample_only and not downsample:
                 continue
             for i in range(1,len(X.columns)-1):
@@ -704,6 +778,27 @@ def main_lof():
     select_all_features_regression(X19,y19,'RegressionResultsLOF')
     find_best_features_regression('RegressionResultsLOF')
 
+# FinalBOCCFeatures
+# do the same as main but with
+def pick_just_regression_features():
+    #'FinalBOCCFeatures/2019/paris.infomap.2019.bocc_res.tsv'
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    X19, y19 = load_files(files_2019)
+
+    print(X19.shape)
+    print('num p < .05',len([i for i in y19 if i < .05]))
+    plot_feature_correlation(X19,'Figures/feature_correlation.png')
+    
+    assert(X19.shape[0] == len(y19))
+    find_nan(X19)
+    # plot_pca(X19,y19)
+    X19 = drop_algo(X19)
+    X19 = drop_plof(X19)
+    
+    # # Select All Features for regression
+    select_all_features_regression(X19,y19,'JustRegressionResults')
+    find_best_features_regression('JustRegressionResults')
+
 def train_and_rank(X_train,y_train,X_test,y_test,outfile,normalize=False,downsample=False):
     # normalize the data
     if normalize:
@@ -767,7 +862,7 @@ def rank_2020_with_2019():
     train_and_rank(X19_r2,y19,X20_r2,y20,'Figures/rank_2020_with_2019.r2.png',normalize=True,downsample=True)
 
 # function that trains a classifier with optimal features and returns the predictions for ALL the data
-def classifier_train_and_predict_all(X,y,normalize=False,downsample=False):
+def classifier_train_and_predict_all(X,y,normalize=False,downsample=False,params=None):
     random.seed(3)
     Xog = X.copy()
     yog = y.copy()
@@ -798,7 +893,11 @@ def classifier_train_and_predict_all(X,y,normalize=False,downsample=False):
         X_test = scaler.transform(X_test)
     
     # train the model
-    model = xgb.XGBClassifier()
+    if params is not None:
+        print('using params for classifier')
+        model = xgb.XGBClassifier(**params)
+    else:
+        model = xgb.XGBClassifier()
     model.fit(X_train,y_train)
 
     # print precioson and recall
@@ -812,7 +911,8 @@ def classifier_train_and_predict_all(X,y,normalize=False,downsample=False):
     
     # get the predictions for all the data
     y_pred_all = model.predict(Xog)
-    return y_pred_all, model, scaler
+    y_prob_all = model.predict_proba(Xog)
+    return y_pred_all, model, scaler, y_prob_all
 
 # function that trains a regressor
 def train_and_predict_regressor(X,y,normalize=False,downsample=False):
@@ -879,7 +979,7 @@ def train_regressor_with_classifier():
     plt.clf()
 
 # def train a regressor
-def train_regressor(X,y,normalize=False,downsample=False):
+def train_regressor(X,y,normalize=False,downsample=False,params=None):
     Xog = X.copy()
     yog = y.copy()
 
@@ -908,12 +1008,17 @@ def train_regressor(X,y,normalize=False,downsample=False):
 
     
     # train the model
-    model = xgb.XGBRegressor()
+    if params is None:
+        model = xgb.XGBRegressor()
+    else:
+        print('Using regression params')
+        model = xgb.XGBRegressor(**params)
     model.fit(X,y)
 
     return model, scaler
 
-def train_classifier(X,y,normalize=False,downsample=False):
+def train_classifier(X,y,normalize=False,downsample=False,params=None):
+    random.seed(0)
     # normalize the data
     scaler = None
     if normalize:
@@ -936,12 +1041,44 @@ def train_classifier(X,y,normalize=False,downsample=False):
 
     
     # train the model
-    model = xgb.XGBClassifier()
+    if params is not None:
+        print('using params')
+        model = xgb.XGBClassifier(**params)
+    else:
+        model = xgb.XGBClassifier()
     model.fit(X,y)
 
     return model, scaler
 
-def practical_application(train_paths,test_paths,features_c,features_r,c_norm,c_downsample,r_norm,r_downsample):
+def rank_plot(x,y,output,title):
+    fig, ax = plt.subplots(2,2)
+    # set fig size
+    fig.set_size_inches(10,10)
+
+    ax[1,0].scatter(x,y,alpha=0.5,s=1)
+    ax[1,0].set_xlabel('Rank')
+    ax[1,0].set_ylabel('Predicted Rank')
+    # remove top and right borders
+    ax[1,0].spines['top'].set_visible(False)
+    ax[1,0].spines['right'].set_visible(False)
+    # plot density of rank at 0,0
+    ax[0,0].hist(x,bins=100)
+    # plot density of predicted rank at 1,1
+    ax[1,1].hist(y,bins=100,orientation='horizontal')
+    # remove top and right borders
+    ax[1,1].spines['top'].set_visible(False)
+    ax[1,1].spines['right'].set_visible(False)
+    # remove left and bottom borders
+    ax[0,0].spines['top'].set_visible(False)
+    ax[0,0].spines['right'].set_visible(False)
+    # hide plot 0,1
+    ax[0,1].axis('off')
+    ax[0,0].set_title(title)
+    plt.tight_layout
+    plt.savefig(output)
+    plt.clf()
+
+def practical_application(train_paths,test_paths,features_c,features_r,c_norm,c_downsample,r_norm,r_downsample,c_params,r_params,threshold=1):
     # load the data
     X_train, y_train = load_files(train_paths)
     X_test, y_test = load_files(test_paths)
@@ -951,14 +1088,40 @@ def practical_application(train_paths,test_paths,features_c,features_r,c_norm,c_
     X_test_c = subset_data(X_train.copy(),features_c)
     
     # train the classifier
-    c_y_pred, c_model, c_scaler = classifier_train_and_predict_all(X_train_c,y_train,normalize=c_norm,downsample=c_downsample)
+    c_y_pred, c_model, c_scaler, c_y_prob_all = classifier_train_and_predict_all(X_train_c,y_train,normalize=c_norm,downsample=c_downsample,params=c_params)
+
+    # change c_y_prob_all to be a list of the probabilities of the positive class
+    c_y_prob_all = [x[1] for x in c_y_prob_all]
+    c_rank = {'cluster_ID':list(range(len(y_train))),'emperical_p': list(y_train), 'predicted_prob': list(c_y_prob_all)}
+    c_rank = pd.DataFrame(c_rank)
+    c_rank['emperical_p_rank'] = c_rank['emperical_p'].rank(ascending=True)
+    c_rank['predicted_prob_rank'] = c_rank['predicted_prob'].rank(ascending=False)
+    # sort by predicted prob rank smaller first
+    c_rank = c_rank.sort_values(by=['predicted_prob_rank'])
+    print(c_rank.head)
+
+    # kendals tau
+    c_tau, c_tau_p = kendals_tau(c_rank['emperical_p_rank'],c_rank['predicted_prob_rank'])
+    print('Classification Kendals Tau: ',c_tau)
+    print('Classification Kendals Tau p-value: ',c_tau_p)
+    rank_plot(c_rank['emperical_p_rank'],c_rank['predicted_prob_rank'],'Figures/rank_plot.classification.19.png','')
+    # kendals tau without p=1
+    c_rank = c_rank[c_rank['emperical_p'] != 1]
+    c_tau, c_tau_p = kendals_tau(c_rank['emperical_p_rank'],c_rank['predicted_prob_rank'])
+    print('without p=1 Classification Kendals Tau: ',c_tau)
+    print('without p=1 Classification Kendals Tau p-value: ',c_tau_p)
+    rank_plot(c_rank['emperical_p_rank'],c_rank['predicted_prob_rank'],'Figures/rank_plot.classification.filtered.19.png','')
+
 
     # subset train based on predictions
     X_train_r = X_train.iloc[c_y_pred == 1]
     X_train_r = subset_data(X_train_r.copy(),features_r)
     y_train = [y_train[i] for i in range(len(y_train)) if c_y_pred[i] == 1]
+
+    plot_feature_correlation(X_train_r,'Figures/feature_correlation.regression.19.png')
+
     # train the regressor
-    r_model, r_scaler = train_regressor(X_train_r,y_train,normalize=r_norm,downsample=r_downsample)
+    r_model, r_scaler = train_regressor(X_train_r,y_train,normalize=r_norm,downsample=r_downsample,params=r_params)
 
     # Predict the test data
     if c_scaler is not None:
@@ -970,29 +1133,47 @@ def practical_application(train_paths,test_paths,features_c,features_r,c_norm,c_
 
     # print the class break down of c_y_pred_test
     print('Class Breakdown of c_y_pred_test')
-    print(np.bincount(c_y_pred_test.astype(int)))
+    # print(np.bincount(c_y_pred_test.astype(int)))
 
     # subset c_y_pred_test based on the predictions
-    # X_test_filtered = X_test.iloc[c_y_pred_test == 1]
-    # y_test_filtered = [y_test[i] for i in range(len(y_test)) if c_y_pred_test[i] == 1]
+    print('prefiltering',X_test.shape)
+    X_test_filtered = X_test.iloc[c_y_pred_test == 1]
+    y_test_filtered = [y_test[i] for i in range(len(y_test)) if c_y_pred_test[i] == 1]
+    print('postfiltering',X_test_filtered.shape)
     
     # predict the test data
     if r_scaler is not None:
-        X_test_r = r_scaler.transform(X_test)
+        X_test_r = r_scaler.transform(X_test_filtered)
     else:
-        X_test_r = X_test.copy()
+        X_test_r = X_test_filtered.copy()
 
     X_test_r = subset_data(X_test_r.copy(),features_r)
     r_y_pred_test = r_model.predict(X_test_r)
-    
+
+    # plot y_test_filtered vs r_y_pred_test
+    plt.scatter(y_test_filtered,r_y_pred_test)
+    plt.xlabel('emperical p-value')
+    plt.ylabel('predicted p-value')
+    plt.title('Predicted vs Emperical p-value')
+    # remove top and right borders
+    ax = plt.gca()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    plt.tight_layout()
+    plt.savefig('Figures/classification_regression_predicted_vs_emperical.png')
+    plt.clf()
+        
     # put r_y_pred_test and c_y_pred_test back together and return
     results = []
+    print(len(c_y_pred_test))
+    r_index = 0
     for i,x in enumerate(c_y_pred_test):
         if x == 0:
             results.append(np.inf)
         else:
-            print(r_y_pred_test[i])
-            results.append(r_y_pred_test[i])
+            # print(r_y_pred_test[i])
+            results.append(r_y_pred_test[r_index])
+            r_index += 1
     assert len(results) == len(c_y_pred_test)
     # how mnay results are not inf
     print('num not inf',len([i for i in results if i != np.inf]))
@@ -1003,15 +1184,15 @@ def practical_application(train_paths,test_paths,features_c,features_r,c_norm,c_
     # sort the df in increasing order
     results_rank = results_rank.sort_values(by='result',ascending=True)
     print('increasing order')
-    print(results_rank)
+    # print(results_rank)
     # assign a rank to each result allow for ties
     results_rank['rank'] = results_rank['result'].rank(method='average')
     print('ranked')
-    print(results_rank)
+    # print(results_rank)
     # sort the df in the original order
     results_rank = results_rank.sort_values(by='index',ascending=True)
     print('original order')
-    print(results_rank)
+    # print(results_rank)
     # return the rank
     return results_rank['rank'].tolist()
 
@@ -1110,7 +1291,7 @@ def top_x_roc(e_file,p_file,outfile):
         FP = len(top_P) - TP
         # print(TP,FP)
         tp_fp.append((TP,FP))
-    print(tp_fp)
+    # print(tp_fp)
 
     fp = [x[1] for x in tp_fp]
     tp = [x[0] for x in tp_fp]
@@ -1140,7 +1321,9 @@ def do_19v20_practical_application():
                           c_norm=False,
                           c_downsample=True,
                           r_norm=False,
-                          r_downsample=True)
+                          r_downsample=True,
+                          c_params=classification_params,
+                          r_params=regression_params)
     
     # load the 2020 files and get the p values
     X20, y20 = load_files(files_2020)
@@ -1154,17 +1337,84 @@ def do_19v20_practical_application():
     df = pd.DataFrame({'clusterID':list(range(len(y20))),'predicted_p_rank':ranks_20,'emprical_p':y20})
     # create a rank columns based on emprical_p
     df['rank'] = df['emprical_p'].rank(method='min')
+    print(df)
     # sort by clusterID
     df.sort_values(by=['clusterID'],inplace=True)
     # write p_df to file
     p_df.to_csv('.pvalues.19v20.tsv',index=False,sep='\t')
     # write ranks_df to file
     ranks_df.to_csv('.ranks.19v20.tsv',index=False,sep='\t')
-    top_x_roc('.ranks.19v20.tsv','.pvalues.19v20.tsv','Figures/top_x_roc.19v20.png')
-    # calc kendall's W
-    tau, pval = kendals_tau(list(df['rank']),list(df['predicted_p_rank']))
-    print('Kendalls W: ',tau)
-    print('Kenalls p-value: ',pval)
+
+def do_19v20_practical_application_p35():
+    # set seed
+    random.seed(42)
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
+    c_features = ['num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_embeddedness', 'conductance', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside']
+    r_features = ['num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_embeddedness', 'conductance', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside']
+    # load the files
+    X19, y19 = load_files(files_2019)
+    X20, y20 = load_files(files_2020)
+    # subset the features
+    X19_c = X19[c_features]
+    X20_c = X20[c_features]
+    X19_r = X19[r_features]
+    X20_r = X20[r_features]
+    # subset X19 to be only those with y < .35
+    threshold = .35
+    X19_r = X19_r.iloc[[i for i,x in enumerate(y19) if x < threshold]]
+    y19_r = [y19[i] for i in range(len(y19)) if y19[i] < threshold]
+    # train the classifier
+    # threshold y19 for training classifier
+    y19_c = [1 if p < threshold else 0 for p in y19]
+    # downsample
+    majority_indices = [i for i,x in enumerate(y19_c) if x == 0]
+    minority_indices = [i for i,x in enumerate(y19_c) if x == 1]
+    minority_count = len(minority_indices)
+    downsample_count = minority_count
+    downsample_indices = random.sample(majority_indices, downsample_count)
+    upsample_indices = minority_indices
+    keep_indices = downsample_indices + upsample_indices
+    X19_c = X19_c.iloc[keep_indices]
+    y19_c = [y19_c[i] for i in keep_indices]
+    # create classifier
+    c_model, c_scaler = train_classifier(X19_c,y19_c,normalize=False,downsample=False,params=HYPERPARAMS_p35)
+    # train the regressor
+    r_model, r_scaler = train_regressor(X19_r,y19_r,normalize=False,downsample=False,params=HYPERPARAMS_p35_regression)
+    # predict X20_c with classifier
+    if c_scaler is not None:
+        X20_c = c_scaler.transform(X20_c)
+    y20_c_pred = c_model.predict(X20_c)
+    # subset X20_r based on y20_c_pred
+    X20_c_r = X20_r.iloc[[i for i,x in enumerate(y20_c_pred) if x == 1]]
+    # predict X20_c_r with regressor
+    if r_scaler is not None:
+        X20_c_r = r_scaler.transform(X20_c_r)
+    y20_c_r_pred = r_model.predict(X20_c_r)
+    # create a df of clusterID and predicted p values
+    predictions = []
+    r_i = 0
+    for x in y20_c_pred:
+        if x == 0:
+            # indivitive that the p-value is bad
+            predictions.append(1)
+        else:
+            predictions.append(y20_c_r_pred[r_i])
+            r_i += 1
+    df = pd.DataFrame({'clusterID':list(range(len(y20))),'predicted_p':predictions,'emprical_p':y20})
+    # rank y20 is ascending order
+    df['real_rank'] = df['emprical_p'].rank(method='min')
+    # rank predicted_p is ascending order too
+    df['predicted_rank'] = df['predicted_p'].rank(method='min')
+    # subset df to include only those with predicted_p != 1
+    df = df[df['emprical_p'] != 1]
+    t,p = kendals_tau(list(df['real_rank']), list(df['predicted_rank']))
+    print('Kendals Tau',t)
+    print('Kendals Tau p-value',p)
+    # plot rank vs rank
+    rank_plot(df['real_rank'],df['predicted_rank'],'Figures/rank_plot.19v20.p35.png','p<.35 classification -> regression\ntau={}'.format(t))
+    
+
 
 def do_19v20_regression_only_roc():
     files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
@@ -1201,6 +1451,25 @@ def do_19v20_regression_only_roc():
     # w = kendals_w(list(df['rank']),list(df['actual_rank']))
     # print('Regression Only', w)
 
+def train_classifier_with_threshold_and_params(X_train,X_test,y_train,y_test,threshold,params):
+    y_train = [1 if p < threshold else 0 for p in y_train]
+    y_test = [1 if p < threshold else 0 for p in y_test]
+    # print the number p == 1 in y19
+    print('y19',sum(y_train),len(y_train))
+    print('y20',sum(y_test),len(y_test))
+
+    # train the classifier
+    model, scaler = train_classifier(X_train,y_train,normalize=False,downsample=True,params=params)
+    # predict X20
+    if scaler is not None:
+        X_test = scaler.transform(X_test)
+        X_test = pd.DataFrame(X_test,columns=features)
+    
+    y_test_pred = model.predict(X_test)
+    y_test_probs = model.predict_proba(X_test)
+    # print(y20_probs)
+    y_test_probs = y_test_probs[:,1]
+    return y_test, y_test_pred, y_test_probs
 
 def classifier_roc():
     features = ['gene_ratio', 'HPO_ratio', 'num_sig_go_enrichment_terms', 'num_of_diseases', 'max_norm_disease_specificity', 'cut_ratio', 'expansion', 'newman_girvan_modularity', 'edges_inside']
@@ -1209,6 +1478,7 @@ def classifier_roc():
     X19, y19 = load_files(files_2019)
     # sub set the features
     X19 = X19[features]
+    plot_feature_correlation(X19,'Figures/feature_correlation.classification_9.2019.png')
     # load the 2020 files
     files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
     X20, y20 = load_files(files_2020)
@@ -1216,49 +1486,45 @@ def classifier_roc():
     # sub set the features
     X20 = X20[features]
 
-    threshold = 1
-    y19 = [1 if p < threshold else 0 for p in y19]
-    y20 = [1 if p < threshold else 0 for p in y20]
-    # print the number p == 1 in y19
-    print('y19',sum(y19),len(y19))
-    print('y20',sum(y20),len(y20))
+    y20_real_p5, y20_pred_p5, y20_probs_p5 = train_classifier_with_threshold_and_params(X19,X20,y19,y20,0.05,None)
+    y20_real_1, y20_pred_1, y20_probs_1 = train_classifier_with_threshold_and_params(X19,X20,y19,y20,1,None)
+    y20_real_1_params, y20_pred_1_params, y20_probs_1_params = train_classifier_with_threshold_and_params(X19,X20,y19,y20,1,classification_params)
 
-    # train the classifier
-    model, scaler = train_classifier(X19,y19,normalize=False,downsample=True)
-    # predict X20
-    if scaler is not None:
-        X20 = scaler.transform(X20)
-        X20 = pd.DataFrame(X20,columns=features)
+    fpr_1_params, tpr_1_params, thresh_1_params = roc_curve(y20_real_1_params,y20_probs_1_params)
+    fpr_1, tpr_1, thresh_1 = roc_curve(y20_real_1,y20_probs_1)
+    fpr_p5, tpr_p5, thresh_p5 = roc_curve(y20_real_p5,y20_probs_p5)
+    roc_auc_1_params = roc_auc_score(y20_real_1_params,y20_probs_1_params)
+    roc_auc_1 = roc_auc_score(y20_real_1,y20_probs_1)
+    roc_auc_p5 = roc_auc_score(y20_real_p5,y20_probs_p5)
+
+    print('ROC AUC 1 params',roc_auc_1_params)
+    print('ROC AUC 1',roc_auc_1)
+    print('ROC AUC p5',roc_auc_p5)
     
-    y20_pred = model.predict(X20)
-    y20_probs = model.predict_proba(X20)
-    print(y20_probs)
-    y20_probs = y20_probs[:,1]
-    print(y20_probs)
-
-    print(len(y20_pred))
-    fpr, tpr, thresh = roc_curve(y20,y20_probs)
-
-    print('fpr',fpr)
-    print('tpr',tpr)
+    # print confusion matrix for each of the thresholds
+    print('Confusion Matrix t=1 with params')
+    print(confusion_matrix(y20_real_1_params,y20_pred_1_params))
+    print('Confusion Matrix t=1')
+    print(confusion_matrix(y20_real_1,y20_pred_1))
+    print('Confusion Matrix t=0.05')
+    print(confusion_matrix(y20_real_p5,y20_pred_p5))
 
     # plot the roc curve
-    plt.plot(fpr,tpr)
-    # plot a diagonal line
-    plt.plot([0,1],[0,1],'k--',c='red')
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    # remove top and right spines
-    plt.gca().spines['top'].set_visible(False)
-    plt.gca().spines['right'].set_visible(False)
-    plt.title('19,20 ROC Curve threshold = {}'.format(threshold))
+    plt.clf()
+    fig, ax = plt.subplots()
+    ax.plot(fpr_1_params, tpr_1_params, label='p<1.00 with hyperparams')
+    ax.plot(fpr_1, tpr_1, label='p<1.00')
+    ax.plot(fpr_p5, tpr_p5, label='p<0.05')
+    ax.plot([0, 1], [0, 1], 'k--')
+    ax.set_xlabel('False Positive Rate')    
+    ax.set_ylabel('True Positive Rate')
+    ax.set_title('ROC Curve')
+    ax.legend(loc="lower right")
+    # remove top and right border
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
     plt.savefig('Figures/roc_curve.classifier.19v20.png')
     plt.clf()
-
-
-
-
-
 
 def start_grid_search():
     # load the 2019 files
@@ -1293,6 +1559,650 @@ def start_genetic_algo_search():
     y19 = [1 if p < threshold else 0 for p in y19]
     genetic_optimization_classification(X19, y19, downsample=True)
 
+def start_genetic_algo_search_regression():
+    # load the 2019 files
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    X19, y19 = load_files(files_2019)
+    og_y19 = y19.copy()
+    # regression features
+    features = ['cluster_size', 'gene_ratio', 'num_of_diseases', 'max_norm_disease_specificity', 'conductance', 'edges_inside', 'hub_dominance']    
+    # sub set the features
+    X19 = X19[features]
+    # threshold y
+    threshold = 1
+    y19 = [1 if p < threshold else 0 for p in y19]
+    # train the classifier
+    model, scaler = train_classifier(X19,y19,normalize=False,downsample=True,params=classification_params)
+    # predict X19
+    if scaler is not None:
+        X19 = scaler.transform(X19)
+        X19 = pd.DataFrame(X19,columns=features)
+    y19_pred = model.predict(X19)
+    # subset X19 for that that are predicted to be 1
+    X19_for_regression = X19[y19_pred == 1]
+    # y19_for_regression = og_y19[y19_pred == 1]
+    y19_for_regression = [og_y19[i] for i,y in enumerate(y19_pred) if y == 1]
+    print('X19_for_regression',X19_for_regression.shape)
+    genetic_optimization_regression(X19_for_regression, y19_for_regression)
+
+def start_genetic_algo_for_just_regression():
+    # load the 2019 files
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    # load 2020
+    files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
+    X19, y19 = load_files(files_2019)
+    X20, y20 = load_files(files_2020)
+    # combine X19 and X20
+    X = pd.concat([X19,X20])
+    y = y19 + y20
+    og_y19 = y19.copy()
+    # regression features
+    features = ['num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_embeddedness', 'conductance', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside']
+    # sub set the features
+    X = X[features]
+    genetic_optimization_regression(X, y,downsample=True)
+
+def start_genetic_algo_for_p35_regression():
+    # load the 2019 files
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    X19, y19 = load_files(files_2019)
+    og_y19 = y19.copy()
+    # regression features
+    features = ['num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_embeddedness', 'conductance', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside']
+    # sub set the features
+    X19 = X19[features]
+    # threshold y
+    threshold = 0.35
+    # remove samples from X first
+    X19 = X19[[x < threshold for x in y19]]
+    y19 = [p for p in y19 if p < threshold]
+    genetic_optimization_regression(X19, y19,downsample=False)
+
+def normalize_rank(xs):
+    # normalize list x to range from 0-1
+    return [x / max(xs) for x in xs]
+
+def filter_and_flip(train_files,test_files,features,plot_prefix,params=None,downsample=True,threshold=1,plot=True):
+    # load the train files
+    X_train, y_train = load_files(train_files)
+    # load the test files
+    X_test, y_test = load_files(test_files)
+    # sub set the features
+    X_train = X_train[features]
+    X_test = X_test[features]
+    # threshold y
+    y_train_og = y_train.copy()
+    y_test_og = y_test.copy()
+    y_train = [1 if p < threshold else 0 for p in y_train]
+    y_test = [1 if p < threshold else 0 for p in y_test]
+   
+    # train the classifier
+    model, scaler = train_classifier(X_train,y_train,normalize=False,downsample=False,params=params)
+    # predict X_test
+    if scaler is not None:
+        X_test = scaler.transform(X_test)
+        X_test = pd.DataFrame(X_test,columns=features)
+    y_test_pred = model.predict(X_test)
+    # get test probs
+    y_test_probs = model.predict_proba(X_test)
+
+    # print the precision and recall
+    print('precision',precision_score(y_test, y_test_pred))
+    print('recall',recall_score(y_test, y_test_pred))
+
+    # ROC curve for the classifier
+    fpr, tpr, thresholds = roc_curve(y_test, y_test_probs[:,1])
+    auc = roc_auc_score(y_test, y_test_probs[:,1])
+
+    if not plot:
+        return fpr, tpr, auc
+
+    plt.plot(fpr, tpr, label='ROC curve (area = %0.2f)' % auc)
+    plt.plot([0, 1], [0, 1], 'k--')  # random predictions curve
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.0])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    # remove top and right border
+    ax = plt.gca()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    # set figure size
+    plt.gcf().set_size_inches(6, 4)
+    plt.legend(loc="lower right")
+    plt.savefig(plot_prefix + '_classifier_roc.png',dpi=300)
+    plt.clf()
+
+    # make a df with the ranks
+    print(model.classes_)
+    y_test_probs = [x[1] for x in y_test_probs]
+    c_rank = {'cluster_ID':list(range(len(y_test))),'emperical_p': list(y_test_og), 'predicted_prob': list(y_test_probs)}
+    c_rank = pd.DataFrame(c_rank)
+    c_rank['emperical_p_rank'] = c_rank['emperical_p'].rank(ascending=True)
+    c_rank['predicted_prob_rank'] = c_rank['predicted_prob'].rank(ascending=True)
+    c_rank['emperical_p_rank_normalized'] = normalize_rank(c_rank['emperical_p_rank'])
+    c_rank['predicted_prob_rank_normalized'] = normalize_rank(c_rank['predicted_prob_rank'])
+
+    c_rank = c_rank[c_rank['emperical_p'] != 1]
+
+    # kendall tau
+    tau, p_value = kendals_tau(c_rank['emperical_p_rank'], c_rank['predicted_prob_rank'])
+    print('Kendall Tau:',tau)
+    print('p-value:',p_value)
+
+    # pearson correlation
+    corr, p_value = pearsonr(c_rank['emperical_p_rank'], c_rank['predicted_prob_rank'])
+    print('Pearson Correlation:',corr)
+    print('p-value:',p_value)
+
+    # remove p = 1
+    rank_plot(c_rank['emperical_p_rank'], c_rank['predicted_prob_rank'], plot_prefix + '_classifier_rank.png',title='Kendall\'s Tau = ' + str(round(tau,2)))
+    return fpr, tpr, auc
+
+
+    
+
+def do_all_filter_and_flip():
+    print('Filter and Flip 2019 - 2022')
+    # list 2019 files
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    # list 2020 files
+    files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
+    # list 2021 files
+    files_2021 = ['FinalBOCCFeatures/2021/' + f for f in os.listdir('FinalBOCCFeatures/2021/')]
+
+    features = ['gene_ratio', 'HPO_ratio', 'num_sig_go_enrichment_terms', 'num_of_diseases', 'max_norm_disease_specificity', 'cut_ratio', 'expansion', 'newman_girvan_modularity', 'edges_inside']
+
+    print('With Threshold = 1.00')
+    print('2019 2020')
+    filter_and_flip(files_2019,
+                    files_2020, 
+                    features,
+                    plot_prefix='Figures/2019v2020_',
+                    params=classification_params,
+                    downsample=True)
+    print('2019 2021')
+    filter_and_flip(files_2019,
+                    files_2021,
+                    features,
+                    plot_prefix='Figures/2019v2021_',
+                    params=classification_params,
+                    downsample=True)
+    
+    print('With Threshold = .1')
+    print('2019 2020')
+    filter_and_flip(files_2019,
+                    files_2020, 
+                    features,
+                    plot_prefix='Figures/2019v2020_tp1_',
+                    params=HYPERPARAMS_p1,
+                    downsample=True,
+                    threshold=.1)
+    print('2019 2021')
+    filter_and_flip(files_2019,
+                    files_2021,
+                    features,
+                    plot_prefix='Figures/2019v2021_tp1_',
+                    params=HYPERPARAMS_p1,
+                    downsample=True,
+                    threshold=.1)
+    
+    print('With Threshold = .35')
+    print('2019 2020')
+    filter_and_flip(files_2019,
+                    files_2020, 
+                    features,
+                    plot_prefix='Figures/2019v2020_tp35_',
+                    params=HYPERPARAMS_p35,
+                    downsample=True,
+                    threshold=.35)
+    print('2019 2021')
+    filter_and_flip(files_2019,
+                    files_2021,
+                    features,
+                    plot_prefix='Figures/2019v2021_tp35_',
+                    params=HYPERPARAMS_p35,
+                    downsample=True,
+                    threshold=.35)
+    
+    print('With Threshold = .05')
+    print('2019 2020')
+    filter_and_flip(files_2019,
+                    files_2020, 
+                    features,
+                    plot_prefix='Figures/2019v2020_tp05_',
+                    params=HYPERPARAMS_p05,
+                    downsample=True,
+                    threshold=.05)
+    print('2019 2021')
+    filter_and_flip(files_2019,
+                    files_2021,
+                    features,
+                    plot_prefix='Figures/2019v2021_tp05_',
+                    params=HYPERPARAMS_p05,
+                    downsample=True,
+                    threshold=.05)
+    
+def threshold_rocs():
+    print('Filter and Flip 2019 - 2022')
+    # list 2019 files
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    # list 2020 files
+    files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
+    # list 2021 files
+    files_2021 = ['FinalBOCCFeatures/2021/' + f for f in os.listdir('FinalBOCCFeatures/2021/')]
+
+    features = ['gene_ratio', 'HPO_ratio', 'num_sig_go_enrichment_terms', 'num_of_diseases', 'max_norm_disease_specificity', 'cut_ratio', 'expansion', 'newman_girvan_modularity', 'edges_inside']
+ 
+    res = {'threshold':[],'auc':[]}
+    res_tp_fp = {'threshold':[],'tpr':[],'fpr':[]}
+    for t in [0.01,.05,.1,.15,.2,.25,.3,.35,.4,.45,.5,.55,.6,.65,.7,.75,.8,.85,.9,.95]:
+        print(t)
+        fpr, tpr, auc = filter_and_flip(files_2019,
+                        files_2020, 
+                        features,
+                        plot_prefix='Figures/2019v2020_',
+                        params=classification_params,
+                        downsample=True,
+                        threshold=t,
+                        plot=False)
+        res['threshold'].append(t)
+        res['auc'].append(auc)
+        res_tp_fp['threshold'].append(t)
+        res_tp_fp['tpr'].append(tpr)
+        res_tp_fp['fpr'].append(fpr)
+    # plot t vs auc
+    fig, ax = plt.subplots()
+    ax.plot(res['threshold'],res['auc'])
+    ax.set_xlabel('Threshold')
+    ax.set_ylabel('AUC')
+    # remove top and right spines from the ax
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    # set x ticks
+    ax.set_xticks([0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1])
+    plt.tight_layout()
+    plt.savefig('Figures/threshold_auc.png')
+    plt.clf()
+
+    
+def just_regression_train_and_test(train_files,test_files,features,params,downsample=True):
+    # load the train files
+    X_train, y_train = load_files(train_files)
+    # load the test files
+    X_test, y_test = load_files(test_files)
+    # sub set the features
+    X_train = X_train[features]
+    X_test = X_test[features]
+    # downsample
+    if downsample:
+        majority_indices = [i for i,x in enumerate(y_train) if x == 1]
+        minority_indices = [i for i,x in enumerate(y_train) if x != 1]
+        majority_count = len(majority_indices)
+        minority_count = len(minority_indices)
+        downsample_count = minority_count
+        print('Downsampling {} samples to {}'.format(majority_count, downsample_count))
+        downsample_indices = random.sample(majority_indices, downsample_count)
+        upsample_indices = minority_indices
+        keep_indices = downsample_indices + upsample_indices
+        X_train = X_train.iloc[keep_indices]
+        y_train = [y_train[i] for i in keep_indices]
+    
+    # train the model
+    model = xgb.XGBRegressor(**params)
+    model.fit(X_train, y_train)
+    # predict
+    y_test_probs = model.predict(X_test)
+    # create a df with id, real rank, predicted rank
+    c_rank = {'cluster_ID':list(range(len(y_test))),'emperical_p': list(y_test), 'predicted_prob': list(y_test_probs)}
+    c_rank = pd.DataFrame(c_rank)
+    c_rank['emperical_p_rank'] = c_rank['emperical_p'].rank(ascending=True)
+    c_rank['predicted_prob_rank'] = c_rank['predicted_prob'].rank(ascending=True)
+    return list(c_rank['emperical_p_rank']), list(c_rank['predicted_prob_rank']), y_test
+
+def just_regression():
+    features = ['num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_embeddedness', 'conductance', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside']
+    # list 2019 files
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    # list 2020 files
+    files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
+    # list 2021 files
+    files_2021 = ['FinalBOCCFeatures/2021/' + f for f in os.listdir('FinalBOCCFeatures/2021/')]
+    real_ranks20, pred_ranks_20, y_test_20 = just_regression_train_and_test(files_2019,files_2020,features,regression_params)
+    tau20, p20 = kendals_tau(real_ranks20, pred_ranks_20)
+    rank_plot(real_ranks20, pred_ranks_20, 'Figures/2019v2020_just_regression_rank.png',title='Kendall\'s Tau = ' + str(round(tau20,2)))
+    # filter real_ranks20 and pred_ranks_20 to only include points with real rank < 100
+    pred_ranks_20 = [pred_ranks_20[i] for i,x in enumerate(y_test_20) if x < 1]
+    real_ranks20 = [real_ranks20[i] for i,x in enumerate(y_test_20) if x < 1]
+    tau20, p20 = kendals_tau(real_ranks20, pred_ranks_20)
+    rank_plot(real_ranks20, pred_ranks_20, 'Figures/2019v2020_just_regression_rank_non_p1.png',title='Kendall\'s Tau = ' + str(round(tau20,2)))
+
+
+def do_genetic_optimization_for_p1_and_p35():
+    # list 2019 files
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    # these are the features determined from using just regression, JustRegressionResults/
+    features = ['num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_embeddedness', 'conductance', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside']
+    # load files
+    X, y = load_files(files_2019)
+    # sub set the features
+    X = X[features]
+
+    # print('-----------------Threshold = 0.1-----------------')
+    # # threshold the ys as .1
+    yp1 = [1 if x < .1 else 0 for x in y]
+    genetic_optimization_classification(X,yp1,downsample=True)
+    # print('\n\n\n\n\n')
+    # print('-----------------Threshold = 0.35-----------------')
+    yp35 = [1 if x < .35 else 0 for x in y]
+    genetic_optimization_classification(X,yp35,downsample=True)
+    print('-----------------Threshold = 0.05-----------------')
+    yp05 = [1 if x < .05 else 0 for x in y]
+    genetic_optimization_classification(X,yp05,downsample=True)
+
+
+def do_genetic_optimization_for_p1_and_p35_with_2019_and_2020():
+    # list 2019 files
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
+    files_2021 = ['FinalBOCCFeatures/2021/' + f for f in os.listdir('FinalBOCCFeatures/2021/')]
+    # these are the features determined from using just regression, JustRegressionResults/
+    features = ['num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_embeddedness', 'conductance', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside']
+    # load files
+    X, y = load_files(files_2019)
+    X20, y20 = load_files(files_2020)
+    X21, y21 = load_files(files_2021)
+    X = pd.concat([X,X20])
+    y = y + y20
+    # sub set the features
+    X_og = X.copy()
+    X21_og = X21.copy()
+
+    X = X[features]
+    X21 = X21[features]
+
+    # print('-----------------Threshold = 0.1-----------------')
+    # # # threshold the ys as .1
+    yp1 = [1 if x < .1 else 0 for x in y]
+    # p1_params, p1_score = genetic_optimization_classification(X,yp1,downsample=True)
+    # # print('\n\n\n\n\n')
+    # print('-----------------Threshold = 0.35-----------------')
+    yp35 = [1 if x < .35 else 0 for x in y]
+    # p35_params, p35_score = genetic_optimization_classification(X,yp35,downsample=True)
+    # print('-----------------Threshold = 0.05-----------------')
+    yp05 = [1 if x < .05 else 0 for x in y]
+    # p05_params, p05_score = genetic_optimization_classification(X,yp05,downsample=True)
+    # print('-----------------Threshold = 1.00-----------------')
+    y_1 = [1 if x < 1 else 0 for x in y]
+    # _1_params, _1_score = genetic_optimization_classification(X,y_1,downsample=True)
+
+    _1_params = {'learning_rate': 0.05686513701078857, 'gamma': 0.3690725162929928, 'n_estimators': 211, 'max_depth': 3, 'max_leaves': 2, 'subsample': 0.20829085379990156, 'booster': 'dart'}
+    p05_params = {'learning_rate': 0.03456314296918745, 'gamma': 0.9629066305213869, 'n_estimators': 48, 'max_depth': 7, 'max_leaves': 7, 'subsample': 0.37969973950855684, 'booster': 'dart'}
+    p35_params = {'learning_rate': 0.021628224103092883, 'gamma': 0.3221929530606452, 'n_estimators': 87, 'max_depth': 3, 'max_leaves': 7, 'subsample': 0.32206709706671505, 'booster': 'dart'}
+    p1_params = {'learning_rate': 0.005681916432964979, 'gamma': 0.3422791197286503, 'n_estimators': 209, 'max_depth': 6, 'max_leaves': 6, 'subsample': 0.25470023288701704, 'booster': 'dart'}
+
+    # train the classifiers
+    model_p1, scaler_p1 = train_classifier(X,yp1,normalize=False,downsample=True,params=p1_params)
+    model_p35, scaler_p35 = train_classifier(X,yp35,normalize=False,downsample=True,params=p35_params)
+    model_p05, scaler_p05 = train_classifier(X,yp05,normalize=False,downsample=True,params=p05_params)
+    model_1, scaler_1 = train_classifier(X,y_1,normalize=False,downsample=True,params=_1_params)
+
+    # predict X21
+    y21_pred_p1 = model_p1.predict_proba(X21)[:,1]
+    y21_pred_p35 = model_p35.predict_proba(X21)[:,1]
+    y21_pred_p05 = model_p05.predict_proba(X21)[:,1]
+    y21_pred_1 = model_1.predict_proba(X21)[:,1]
+
+    # get roc curve
+    y21_p1 = [1 if x < .1 else 0 for x in y21]
+    fpr_p1, tpr_p1, thresholds_p1 = roc_curve(y21_p1, y21_pred_p1)
+    auc_p1 = roc_auc_score(y21_p1, y21_pred_p1)
+
+    y21_p35 = [1 if x < .35 else 0 for x in y21]
+    fpr_p35, tpr_p35, thresholds_p35 = roc_curve(y21_p35, y21_pred_p35)
+    auc_p35 = roc_auc_score(y21_p35, y21_pred_p35)
+
+    y21_p05 = [1 if x < .05 else 0 for x in y21]
+    fpr_p05, tpr_p05, thresholds_p05 = roc_curve(y21_p05, y21_pred_p05)
+    auc_p05 = roc_auc_score(y21_p05, y21_pred_p05)
+
+    y21_1 = [1 if x < 1 else 0 for x in y21]
+    fpr_1, tpr_1, thresholds_1 = roc_curve(y21_1, y21_pred_1)
+    auc_1 = roc_auc_score(y21_1, y21_pred_1)
+
+    # plot the roc curves
+    plt.plot(fpr_1, tpr_1, label='p < 1.00 (area = %0.2f)' % auc_1)
+    plt.plot(fpr_p35, tpr_p35, label='p < 0.35 (area = %0.2f)' % auc_p35)
+    plt.plot(fpr_p1, tpr_p1, label='p < 0.10 (area = %0.2f)' % auc_p1)
+    plt.plot(fpr_p05, tpr_p05, label='p < 0.05 (area = %0.2f)' % auc_p05)
+    plt.plot([0, 1], [0, 1], 'k--')  # random predictions curve
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.0])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    # remove top and right border
+    ax = plt.gca()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    # set figure size
+    plt.gcf().set_size_inches(5, 5)
+    plt.legend(loc="lower right",frameon=False)
+    plt.savefig('Figures/trained_19_20_test_2021_roc.png',dpi=300)
+    plt.clf()
+
+    # get all X and y with p < t
+    regression_features = ['num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_embeddedness', 'conductance', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside']
+    X_r = X_og[regression_features]
+    X_p1 = X_r[[x < .1 for x in y]]
+    y_p1 = [x for x in y if x < .1]
+    X_p35 = X_r[[x < .35 for x in y]]
+    y_p35 = [x for x in y if x < .35]
+    X_p05 = X_r[[x < .05 for x in y]]
+    y_p05 = [x for x in y if x < .05]
+    X_1 = X_r[[x < 1 for x in y]]
+    y_1 = [x for x in y if x < 1.00]
+
+    # genetic algo search for regression
+    X21_r = X21_og[regression_features]
+    print('-----------------Threshold = 0.1-----------------')
+    p1_params, p1_score = genetic_optimization_regression(X_p1,y_p1,downsample=False)
+    regress_rank_tau(X_train=X_p1,
+                     y_train=y_p1,
+                     X_test=X21_r,
+                     y_test=y21,
+                     y_test_pred=model_p1.predict(X21_r),
+                     params=p1_params,
+                     prefix='p < 0.10')
+
+def regress_rank_tau(X_train,y_train,X_test,y_test,y_test_pred,params,prefix=''):
+    model_p1 = xgb.XGBRegressor(**params)
+    model_p1.fit(X_train, y_train)
+    # get the X21_r samples that where predicted 1 by the classifier
+    X21_r_predicted = X_test[[x == 1 for x in y_test_pred]]
+    y21_r_predicted = [ y_test[i] for i,x in enumerate(y_test_pred) if x == 1]
+    y21_pred = model_p1.predict(X21_r_predicted)
+    # create dataframe with cluster_id, real rank, predicted rank
+    c_rank = {'cluster_ID':list(range(len(y21_r_predicted))),'emperical_p': list(y21_r_predicted), 'predicted_prob': list(y21_pred)}
+    c_rank = pd.DataFrame(c_rank)
+    c_rank['emperical_p_rank'] = c_rank['emperical_p'].rank(ascending=True)
+    c_rank['predicted_prob_rank'] = c_rank['predicted_prob'].rank(ascending=True)
+    # get kendall's tau
+    tau, p_value = kendals_tau(c_rank['emperical_p_rank'], c_rank['predicted_prob_rank'])
+    print(prefix,'Kendall Tau:',tau)
+
+
+
+    # p35_params, p35_score = genetic_optimization_regression(X_p35,y_p35,downsample=True)
+    # p05_params, p05_score = genetic_optimization_regression(X_p05,y_p05,downsample=True)
+    # _1_params, _1_score = genetic_optimization_regression(X_1,y_1,downsample=True)
+
+
+
+
+
+
+
+
+
+
+
+def load_clusters(filename,prefix):
+    com_dict = {}
+    for line in open(filename,'r'):
+        row = line.strip().split('\t')
+        c_name = prefix + row[0]
+        com_dict[c_name] = row[1:]
+    return com_dict
+    
+    
+
+
+def make_classification_results():
+    # load files 2019-2022
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
+    files_2021 = ['FinalBOCCFeatures/2021/' + f for f in os.listdir('FinalBOCCFeatures/2021/')]
+    # files_2022 = ['FinalBOCCFeatures/2022/' + f for f in os.listdir('FinalBOCCFeatures/2022/')]
+    # load files 2019-2022
+    X19, y19 = load_files(files_2019)
+    X20, y20 = load_files(files_2020)
+    X21, y21 = load_files(files_2021)
+    # create list of names for the samples in X19 based on algo and the row index
+    X19_cluster_ids = ['{}.{}:{}'.format(a,'2019',str(i)) for a,i in zip(X19['algo'],X19['cluster_id'])]
+    X20_cluster_ids = ['{}.{}:{}'.format(a,'2020',str(i)) for a,i in zip(X20['algo'],X20['cluster_id'])]
+    X21_cluster_ids = ['{}.{}:{}'.format(a,'2021',str(i)) for a,i in zip(X21['algo'],X21['cluster_id'])]
+    
+    # X22, y22 = load_files(files_2022)
+    features = ['num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_embeddedness', 'conductance', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside']
+    # sub set the features
+    X19 = X19[features]
+    X20 = X20[features]
+    X21 = X21[features]
+    thresholds = [1.00,.35,.1]
+    results_2021 = {'cluster_id':[],}
+    classifiers = {}
+    for t in thresholds:
+        # threshold y for 2019
+        y19_c = [1 if p < t else 0 for p in y19]
+        # train the classifier
+        model, scaler = train_classifier(X19,y19_c,normalize=False,downsample=True,params=classification_params)
+        classifiers[t] = model
+    m1 = classifiers[1.00]
+    results_2021['p < 1.00'] = m1.predict(X21)
+    m35 = classifiers[.35]
+    results_2021['p < 0.35'] = m35.predict(X21)
+    mp1 = classifiers[.1]
+    results_2021['p < 0.10'] = mp1.predict(X21)
+    results_2021['cluster_id'] = X21_cluster_ids
+
+    # roc curve of each threshold
+    y21_1 = [1 if y < 1 else 0 for y in y21]
+    y21_35 = [1 if y < .35 else 0 for y in y21]
+    y21_01 = [1 if y < .1 else 0 for y in y21]
+    fpr_1, tpr_1, thresholds_1 = roc_curve(y21_1, m1.predict_proba(X21)[:,1])
+    auc_1 = roc_auc_score(y21_1, results_2021['p < 1.00'])
+    fpr_35, tpr_35, thresholds_35 = roc_curve(y21_35, m35.predict_proba(X21)[:,1])
+    auc_35 = roc_auc_score(y21_35, results_2021['p < 0.35'])
+    fpr_10, tpr_10, thresholds_10 = roc_curve(y21_01, mp1.predict_proba(X21)[:,1])
+    auc_10 = roc_auc_score(y21_01, results_2021['p < 0.10'])
+    # plot the roc curves
+    plt.plot(fpr_1, tpr_1, label='p < 1.00 (area = %0.2f)' % auc_1)
+    plt.plot(fpr_35, tpr_35, label='p < 0.35 (area = %0.2f)' % auc_35)
+    plt.plot(fpr_10, tpr_10, label='p < 0.10 (area = %0.2f)' % auc_10)
+    plt.plot([0, 1], [0, 1], 'k--')  # random predictions curve
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.0])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    # remove top and right border
+    ax = plt.gca()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    # set figure size
+    plt.gcf().set_size_inches(5, 5)
+    plt.legend(loc="lower right")
+    plt.savefig('Figures/2021_classifier_roc.png',dpi=300)
+    plt.clf()
+
+    # to tsv
+    results_2021 = pd.DataFrame(results_2021)
+    results_2021.to_csv('Results/2021.classification.tsv',sep='\t',index=False)
+
+    all_coms = {}
+    g21 = load_clusters('SubComs/2021/paris.greedy.2021.coms.txt','paris.greedy.2021:')
+    # add g21 to all_coms
+    all_coms.update(g21)
+    # do it for cesna, walktrap and infomap now
+    c21 = load_clusters('SubComs/2021/paris.cesna.2021.coms.txt','paris.cesna.2021:')
+    all_coms.update(c21)
+    w21 = load_clusters('SubComs/2021/paris.walktrap.2021.coms.txt','paris.walktrap.2021:')
+    all_coms.update(w21)
+    i21 = load_clusters('SubComs/2021/paris.infomap.2021.coms.txt','paris.infomap.2021:')
+    all_coms.update(i21)
+    # create a new dictionary with the colulmns, cluster_id, gene p < 1.00, p < 0.35, p < 0.10
+    results_2021_gene_wise = {'cluster_id':[],'gene':[],'p < 1.00':[],'p < 0.35':[],'p < 0.10':[]}
+    missing_cluster = set()
+    for i,row in results_2021.iterrows():
+        cluster_id = row['cluster_id']
+        if cluster_id not in all_coms:
+            missing_cluster.add(cluster_id)
+            continue
+        for gene in all_coms[cluster_id]:
+            if 'HP:' in gene:
+                continue
+            results_2021_gene_wise['cluster_id'].append(cluster_id)
+            results_2021_gene_wise['gene'].append(gene)
+            results_2021_gene_wise['p < 1.00'].append(row['p < 1.00'])
+            results_2021_gene_wise['p < 0.35'].append(row['p < 0.35'])
+            results_2021_gene_wise['p < 0.10'].append(row['p < 0.10'])
+    results_2021_gene_wise = pd.DataFrame(results_2021_gene_wise)
+    results_2021_gene_wise.to_csv('Results/2021.classification.gene_wise.tsv',sep='\t',index=False)
+    print('Missing Clusters:',missing_cluster)
+    print('Missing Clusters Count:',len(missing_cluster))
+    # print number of p < 1.00, p < 0.35, p < 0.10
+    print('gene-wise p < 1.00',len([x for x in results_2021_gene_wise['p < 1.00'] if x == 1]))
+    print('gene-wise p < 0.35',len([x for x in results_2021_gene_wise['p < 0.35'] if x == 1]))
+    print('gene-wise p < 0.10',len([x for x in results_2021_gene_wise['p < 0.10'] if x == 1]))
+    # print the same but from results_2021
+    print('p < 1.00',len([x for x in results_2021['p < 1.00'] if x == 1]))
+    print('p < 0.35',len([x for x in results_2021['p < 0.35'] if x == 1]))
+    print('p < 0.10',len([x for x in results_2021['p < 0.10'] if x == 1]))
+    # print the same for results_2021 but as a %
+    print('p < 1.00',len([x for x in results_2021['p < 1.00'] if x == 1]) / len(results_2021['p < 1.00']))
+    print('p < 0.35',len([x for x in results_2021['p < 0.35'] if x == 1]) / len(results_2021['p < 0.35']))
+    print('p < 0.10',len([x for x in results_2021['p < 0.10'] if x == 1]) / len(results_2021['p < 0.10']))
+
+
+
+# train on both 19 and 20, test on 21, do a genetic optimization
+def train_19_20_test_21():
+    # load files
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
+    files_2021 = ['FinalBOCCFeatures/2021/' + f for f in os.listdir('FinalBOCCFeatures/2021/')]
+    # load files 2019-2021
+    X19, y19 = load_files(files_2019)
+    X20, y20 = load_files(files_2020)
+    X21, y21 = load_files(files_2021)
+    # combine 19 and 20
+    X19_20 = pd.concat([X19,X20])
+    y19_20 = y19 + y20
+    # sub set the features
+    features = ['num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_embeddedness', 'conductance', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside']
+    X19_20 = X19_20[features]
+    X21 = X21[features]
+    # threshold y for 19,20
+    y19_20_p35 = [1 if p < .35 else 0 for p in y19_20]
+    y21_p35 = [1 if p < .35 else 0 for p in y21]
+    # p < 0.1
+    y19_20_p1 = [1 if p < .1 else 0 for p in y19_20]
+    y21_p1 = [1 if p < .1 else 0 for p in y21]
+    # p < 1.0
+    y19_20_p1 = [1 if p < 1 else 0 for p in y19_20]
+    y21_p1 = [1 if p < 1 else 0 for p in y21]
+
+
+
 
 
 if __name__ == '__main__':
@@ -1303,9 +2213,24 @@ if __name__ == '__main__':
     # do_19v20_practical_application()
     # train_regressor_with_classifier()
     # main_lof()
+    # Do feature selection for if we use ONLY regression from the beginning
+    # pick_just_regression_features()
     # main()
-    start_genetic_algo_search()
-    
+    # print('-----------------Classification-----------------')
+    # start_genetic_algo_search()
+    # print('-----------------Regression-----------------')
+    # start_genetic_algo_search_regression()
+    # do_all_filter_and_flip()
+    # start_genetic_algo_for_just_regression()
+    # just_regression()
+    # threshold_rocs()
+    # do_genetic_optimization_for_p1_and_p35()
+    # start_genetic_algo_for_p35_regression()
+    # do_19v20_practical_application_p35()
+    # make_classification_results()
+
+    do_genetic_optimization_for_p1_and_p35_with_2019_and_2020()
+    # start_genetic_algo_for_just_regression()
 
 
 # python Scripts/train_model.py
