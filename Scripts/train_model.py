@@ -24,6 +24,7 @@ from sklearn_genetic import GASearchCV
 from sklearn_genetic.space import Categorical, Integer, Continuous
 from sklearn.metrics import make_scorer
 from scipy.stats import pearsonr
+import shap
 
 # import friedmanchisquared
 from scipy import stats
@@ -1796,7 +1797,7 @@ def threshold_rocs():
  
     res = {'threshold':[],'auc':[]}
     res_tp_fp = {'threshold':[],'tpr':[],'fpr':[]}
-    for t in [0.01,.05,.1,.15,.2,.25,.3,.35,.4,.45,.5,.55,.6,.65,.7,.75,.8,.85,.9,.95]:
+    for t in [0.01,.05,.1,.15,.2,.25,.3,.35,.4,.45,.5,.55,.6,.65,.7,.75,.8,.85,.9,.95,1.00]:
         print(t)
         fpr, tpr, auc = filter_and_flip(files_2019,
                         files_2020, 
@@ -1806,6 +1807,7 @@ def threshold_rocs():
                         downsample=True,
                         threshold=t,
                         plot=False)
+        print(t, auc)
         res['threshold'].append(t)
         res['auc'].append(auc)
         res_tp_fp['threshold'].append(t)
@@ -1912,6 +1914,12 @@ def do_genetic_optimization_for_p1_and_p35_with_2019_and_2020():
     X, y = load_files(files_2019)
     X20, y20 = load_files(files_2020)
     X21, y21 = load_files(files_2021)
+
+    # create list of names for the samples in X19 based on algo and the row index
+    X19_cluster_ids = ['{}.{}:{}'.format(a,'2019',str(i)) for a,i in zip(X['algo'],X['cluster_id'])]
+    X20_cluster_ids = ['{}.{}:{}'.format(a,'2020',str(i)) for a,i in zip(X20['algo'],X20['cluster_id'])]
+    X21_cluster_ids = ['{}.{}:{}'.format(a,'2021',str(i)) for a,i in zip(X21['algo'],X21['cluster_id'])]
+
     X = pd.concat([X,X20])
     y = y + y20
     # sub set the features
@@ -1937,9 +1945,9 @@ def do_genetic_optimization_for_p1_and_p35_with_2019_and_2020():
     # _1_params, _1_score = genetic_optimization_classification(X,y_1,downsample=True)
 
     _1_params = {'learning_rate': 0.05686513701078857, 'gamma': 0.3690725162929928, 'n_estimators': 211, 'max_depth': 3, 'max_leaves': 2, 'subsample': 0.20829085379990156, 'booster': 'dart'}
-    p05_params = {'learning_rate': 0.03456314296918745, 'gamma': 0.9629066305213869, 'n_estimators': 48, 'max_depth': 7, 'max_leaves': 7, 'subsample': 0.37969973950855684, 'booster': 'dart'}
     p35_params = {'learning_rate': 0.021628224103092883, 'gamma': 0.3221929530606452, 'n_estimators': 87, 'max_depth': 3, 'max_leaves': 7, 'subsample': 0.32206709706671505, 'booster': 'dart'}
     p1_params = {'learning_rate': 0.005681916432964979, 'gamma': 0.3422791197286503, 'n_estimators': 209, 'max_depth': 6, 'max_leaves': 6, 'subsample': 0.25470023288701704, 'booster': 'dart'}
+    p05_params = {'learning_rate': 0.03456314296918745, 'gamma': 0.9629066305213869, 'n_estimators': 48, 'max_depth': 7, 'max_leaves': 7, 'subsample': 0.37969973950855684, 'booster': 'dart'}
 
     # train the classifiers
     model_p1, scaler_p1 = train_classifier(X,yp1,normalize=False,downsample=True,params=p1_params)
@@ -1952,6 +1960,12 @@ def do_genetic_optimization_for_p1_and_p35_with_2019_and_2020():
     y21_pred_p35 = model_p35.predict_proba(X21)[:,1]
     y21_pred_p05 = model_p05.predict_proba(X21)[:,1]
     y21_pred_1 = model_1.predict_proba(X21)[:,1]
+
+    # predict X21
+    y21_pred_binary_p1 = model_p1.predict(X21)
+    y21_pred_binary_p35 = model_p35.predict(X21)
+    y21_pred_binary_p05 = model_p05.predict(X21)
+    y21_pred_binary_1 = model_1.predict(X21)
 
     # get roc curve
     y21_p1 = [1 if x < .1 else 0 for x in y21]
@@ -1990,29 +2004,31 @@ def do_genetic_optimization_for_p1_and_p35_with_2019_and_2020():
     plt.savefig('Figures/trained_19_20_test_2021_roc.png',dpi=300)
     plt.clf()
 
-    # get all X and y with p < t
-    regression_features = ['num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_embeddedness', 'conductance', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside']
-    X_r = X_og[regression_features]
-    X_p1 = X_r[[x < .1 for x in y]]
-    y_p1 = [x for x in y if x < .1]
-    X_p35 = X_r[[x < .35 for x in y]]
-    y_p35 = [x for x in y if x < .35]
-    X_p05 = X_r[[x < .05 for x in y]]
-    y_p05 = [x for x in y if x < .05]
-    X_1 = X_r[[x < 1 for x in y]]
-    y_1 = [x for x in y if x < 1.00]
+    # write results to TSV with the following columns:
+    # cluster_id, gene, 1.00, 0.35, 0.10, 0.05
+    all_coms = {}
+    g21 = load_clusters('SubComs/2021/paris.greedy.2021.coms.txt','paris.greedy.2021:')
+    # add g21 to all_coms
+    all_coms.update(g21)
+    # do it for cesna, walktrap and infomap now
+    c21 = load_clusters('SubComs/2021/paris.cesna.2021.coms.txt','paris.cesna.2021:')
+    all_coms.update(c21)
+    w21 = load_clusters('SubComs/2021/paris.walktrap.2021.coms.txt','paris.walktrap.2021:')
+    all_coms.update(w21)
+    i21 = load_clusters('SubComs/2021/paris.infomap.2021.coms.txt','paris.infomap.2021:')
+    all_coms.update(i21)
 
-    # genetic algo search for regression
-    X21_r = X21_og[regression_features]
-    print('-----------------Threshold = 0.1-----------------')
-    p1_params, p1_score = genetic_optimization_regression(X_p1,y_p1,downsample=False)
-    regress_rank_tau(X_train=X_p1,
-                     y_train=y_p1,
-                     X_test=X21_r,
-                     y_test=y21,
-                     y_test_pred=model_p1.predict(X21_r),
-                     params=p1_params,
-                     prefix='p < 0.10')
+    print('Writing results to Results/2021_predictions.tsv')
+    outfile = open('Results/2021_predictions.tsv','w')
+    outfile.write('{}\t{}\t{}\t{}\t{}\t{}\n'.format('cluster_id','gene','p < 1.00','p < 0.35','p < 0.10','p < 0.05'))
+    for cid, _1, p35, p1, p05 in zip(X21_cluster_ids, y21_pred_binary_1, y21_pred_binary_p35, y21_pred_binary_p1, y21_pred_binary_p05):
+        if cid not in all_coms:
+            continue
+        for node in all_coms[cid]:
+            if 'HP:' in node:
+                continue
+            outfile.write('{}\t{}\t{}\t{}\t{}\t{}\n'.format(cid,node,_1,p35,p1,p05))
+        
 
 def regress_rank_tau(X_train,y_train,X_test,y_test,y_test_pred,params,prefix=''):
     model_p1 = xgb.XGBRegressor(**params)
@@ -2036,15 +2052,63 @@ def regress_rank_tau(X_train,y_train,X_test,y_test,y_test_pred,params,prefix='')
     # p05_params, p05_score = genetic_optimization_regression(X_p05,y_p05,downsample=True)
     # _1_params, _1_score = genetic_optimization_regression(X_1,y_1,downsample=True)
 
+# function that trains on 2019 and 2020 and tests on 2021, using the 0.35 threshold and the optimzed parameters, then calculate SHAP values for each feature
+def do_shap_analysis():
+    # list 2019 files
+    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
+    files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
+    files_2021 = ['FinalBOCCFeatures/2021/' + f for f in os.listdir('FinalBOCCFeatures/2021/')]
+
+    # these are the features determined from using just regression, JustRegressionResults/
+    features = ['num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_embeddedness', 'conductance', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside']
+    # load files
+    X, y = load_files(files_2019)
+    X20, y20 = load_files(files_2020)
+    X21, y21 = load_files(files_2021)
+    X = pd.concat([X,X20])
+    y = y + y20
+    # sub set the features
+    X_og = X.copy()
+    X21_og = X21.copy()
+
+    # for each columns in X report the min and max
+    for c in X.columns:
+        print(c,':',min(X[c]),max(X[c]))
+
+    X = X[features]
+    X21 = X21[features]
+
+    yp35 = [1 if x < .35 else 0 for x in y]
+
+    p35_params = {'learning_rate': 0.021628224103092883, 'gamma': 0.3221929530606452, 'n_estimators': 87, 'max_depth': 3, 'max_leaves': 7, 'subsample': 0.32206709706671505, 'booster': 'dart'}
+    model_p35, scaler_p35 = train_classifier(X,yp35,normalize=False,downsample=True,params=p35_params)
+
+    # check if shap_values.p exists
+    if os.path.exists('shap_values.p'):
+        print('Loading shap_values.p and explainer.p')
+        shap_values = pickle.load(open('shap_values.p','rb'))
+        explainer = pickle.load(open('explainer.p','rb'))
+    else:
+        print('Calculating SHAP values')
+        explainer = shap.Explainer(model_p35.predict, X21)
+        shap_values = explainer(X)
+        print('Saving shap_values.p and explainer.p')
+        # pickle the shap_values
+        pickle.dump(shap_values, open('shap_values.p','wb'))
+        # picle explainer
+        pickle.dump(explainer, open('explainer.p','wb'))
+    
+    shap.plots.beeswarm(shap_values)
+    shap.plots.bar(shap_values)
 
 
 
+    
+    
+    
 
 
-
-
-
-
+    
 
 def load_clusters(filename,prefix):
     com_dict = {}
@@ -2140,7 +2204,7 @@ def make_classification_results():
     i21 = load_clusters('SubComs/2021/paris.infomap.2021.coms.txt','paris.infomap.2021:')
     all_coms.update(i21)
     # create a new dictionary with the colulmns, cluster_id, gene p < 1.00, p < 0.35, p < 0.10
-    results_2021_gene_wise = {'cluster_id':[],'gene':[],'p < 1.00':[],'p < 0.35':[],'p < 0.10':[]}
+    results_2021_gene_wise = {'cluster_id':[],'gene':[],'p < 1.00':[],'p < 0.35':[],'p < 0.10':[],'p < 0.05':[]}
     missing_cluster = set()
     for i,row in results_2021.iterrows():
         cluster_id = row['cluster_id']
@@ -2155,6 +2219,7 @@ def make_classification_results():
             results_2021_gene_wise['p < 1.00'].append(row['p < 1.00'])
             results_2021_gene_wise['p < 0.35'].append(row['p < 0.35'])
             results_2021_gene_wise['p < 0.10'].append(row['p < 0.10'])
+            results_2021_gene_wise['p < 0.05'].append(row['p < 0.05'])
     results_2021_gene_wise = pd.DataFrame(results_2021_gene_wise)
     results_2021_gene_wise.to_csv('Results/2021.classification.gene_wise.tsv',sep='\t',index=False)
     print('Missing Clusters:',missing_cluster)
@@ -2171,36 +2236,6 @@ def make_classification_results():
     print('p < 1.00',len([x for x in results_2021['p < 1.00'] if x == 1]) / len(results_2021['p < 1.00']))
     print('p < 0.35',len([x for x in results_2021['p < 0.35'] if x == 1]) / len(results_2021['p < 0.35']))
     print('p < 0.10',len([x for x in results_2021['p < 0.10'] if x == 1]) / len(results_2021['p < 0.10']))
-
-
-
-# train on both 19 and 20, test on 21, do a genetic optimization
-def train_19_20_test_21():
-    # load files
-    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
-    files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
-    files_2021 = ['FinalBOCCFeatures/2021/' + f for f in os.listdir('FinalBOCCFeatures/2021/')]
-    # load files 2019-2021
-    X19, y19 = load_files(files_2019)
-    X20, y20 = load_files(files_2020)
-    X21, y21 = load_files(files_2021)
-    # combine 19 and 20
-    X19_20 = pd.concat([X19,X20])
-    y19_20 = y19 + y20
-    # sub set the features
-    features = ['num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_embeddedness', 'conductance', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside']
-    X19_20 = X19_20[features]
-    X21 = X21[features]
-    # threshold y for 19,20
-    y19_20_p35 = [1 if p < .35 else 0 for p in y19_20]
-    y21_p35 = [1 if p < .35 else 0 for p in y21]
-    # p < 0.1
-    y19_20_p1 = [1 if p < .1 else 0 for p in y19_20]
-    y21_p1 = [1 if p < .1 else 0 for p in y21]
-    # p < 1.0
-    y19_20_p1 = [1 if p < 1 else 0 for p in y19_20]
-    y21_p1 = [1 if p < 1 else 0 for p in y21]
-
 
 
 
@@ -2230,7 +2265,8 @@ if __name__ == '__main__':
     # make_classification_results()
 
     do_genetic_optimization_for_p1_and_p35_with_2019_and_2020()
-    # start_genetic_algo_for_just_regression()
+    # do_shap_analysis()
+    
 
 
 # python Scripts/train_model.py
