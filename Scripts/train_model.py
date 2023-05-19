@@ -99,6 +99,39 @@ def load_files(files):
             y = y + tmp_y
     return X, y
 
+def train_classifier(X,y,normalize=False,downsample=False,params=None):
+    random.seed(0)
+    # normalize the data
+    scaler = None
+    if normalize:
+        scaler = RobustScaler()
+        scaler.fit(X)
+        X = scaler.transform(X)
+        X = pd.DataFrame(X)
+    
+    # downsample the data
+    if downsample:
+        majority_indices = [i for i,x in enumerate(y) if x != 1]
+        minority_indices = [i for i,x in enumerate(y) if x == 1]
+        minority_count = len(minority_indices)
+        downsample_count = minority_count
+        downsample_indices = random.sample(majority_indices, downsample_count)
+        upsample_indices = minority_indices
+        keep_indices = downsample_indices + upsample_indices
+        X = X.iloc[keep_indices]
+        y = [y[i] for i in keep_indices]
+
+    
+    # train the model
+    if params is not None:
+        print('using params')
+        model = xgb.XGBClassifier(**params)
+    else:
+        model = xgb.XGBClassifier()
+    model.fit(X,y)
+
+    return model, scaler
+
 def genetic_optimization_classification(X, y, downsample=True):
     # set seed
     random.seed(42)
@@ -334,6 +367,8 @@ def feature_selection():
     
     assert(X19.shape[0] == len(y19))
     find_nan(X19)
+    # remove the columns cluster_id
+    X19 = X19.drop('clsuter_id', axis=1)
     # plot_pca(X19,y19)
     X19 = drop_algo(X19)
     X19 = drop_plof(X19)
@@ -418,57 +453,6 @@ def threshold_rocs():
     plt.tight_layout()
     plt.savefig('Figures/threshold_auc.png')
     plt.clf()
-
-def just_regression_train_and_test(train_files,test_files,features,params,downsample=True):
-    # load the train files
-    X_train, y_train = load_files(train_files)
-    # load the test files
-    X_test, y_test = load_files(test_files)
-    # sub set the features
-    X_train = X_train[features]
-    X_test = X_test[features]
-    # downsample
-    if downsample:
-        majority_indices = [i for i,x in enumerate(y_train) if x == 1]
-        minority_indices = [i for i,x in enumerate(y_train) if x != 1]
-        majority_count = len(majority_indices)
-        minority_count = len(minority_indices)
-        downsample_count = minority_count
-        print('Downsampling {} samples to {}'.format(majority_count, downsample_count))
-        downsample_indices = random.sample(majority_indices, downsample_count)
-        upsample_indices = minority_indices
-        keep_indices = downsample_indices + upsample_indices
-        X_train = X_train.iloc[keep_indices]
-        y_train = [y_train[i] for i in keep_indices]
-    
-    # train the model
-    model = xgb.XGBRegressor(**params)
-    model.fit(X_train, y_train)
-    # predict
-    y_test_probs = model.predict(X_test)
-    # create a df with id, real rank, predicted rank
-    c_rank = {'cluster_ID':list(range(len(y_test))),'emperical_p': list(y_test), 'predicted_prob': list(y_test_probs)}
-    c_rank = pd.DataFrame(c_rank)
-    c_rank['emperical_p_rank'] = c_rank['emperical_p'].rank(ascending=True)
-    c_rank['predicted_prob_rank'] = c_rank['predicted_prob'].rank(ascending=True)
-    return list(c_rank['emperical_p_rank']), list(c_rank['predicted_prob_rank']), y_test
-
-def just_regression():
-    features = ['num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_embeddedness', 'conductance', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside']
-    # list 2019 files
-    files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
-    # list 2020 files
-    files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
-    # list 2021 files
-    files_2021 = ['FinalBOCCFeatures/2021/' + f for f in os.listdir('FinalBOCCFeatures/2021/')]
-    real_ranks20, pred_ranks_20, y_test_20 = just_regression_train_and_test(files_2019,files_2020,features,regression_params)
-    tau20, p20 = kendals_tau(real_ranks20, pred_ranks_20)
-    rank_plot(real_ranks20, pred_ranks_20, 'Figures/2019v2020_just_regression_rank.png',title='Kendall\'s Tau = ' + str(round(tau20,2)))
-    # filter real_ranks20 and pred_ranks_20 to only include points with real rank < 100
-    pred_ranks_20 = [pred_ranks_20[i] for i,x in enumerate(y_test_20) if x < 1]
-    real_ranks20 = [real_ranks20[i] for i,x in enumerate(y_test_20) if x < 1]
-    tau20, p20 = kendals_tau(real_ranks20, pred_ranks_20)
-    rank_plot(real_ranks20, pred_ranks_20, 'Figures/2019v2020_just_regression_rank_non_p1.png',title='Kendall\'s Tau = ' + str(round(tau20,2)))
 
 def optimize_train_test_report():
     # list 2019 files
