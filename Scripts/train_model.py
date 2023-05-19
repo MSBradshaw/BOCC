@@ -368,7 +368,7 @@ def feature_selection():
     assert(X19.shape[0] == len(y19))
     find_nan(X19)
     # remove the columns cluster_id
-    X19 = X19.drop('clsuter_id', axis=1)
+    X19 = X19.drop('cluster_id', axis=1)
     # plot_pca(X19,y19)
     X19 = drop_algo(X19)
     X19 = drop_plof(X19)
