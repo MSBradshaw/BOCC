@@ -36,17 +36,11 @@ HYPERPARAMS_Genetic_Algo = {
         'booster' : Categorical(['dart'])
         }
 
-HYPERPARAMS_p35 = {'learning_rate': 0.04043818815600482, 'gamma': 0.5713083222302612, 'n_estimators': 196, 'max_depth': 25, 'max_leaves': 2, 'subsample': 0.20159801360534982, 'booster': 'dart'}
-HYPERPARAMS_p1 = {'learning_rate': 0.05272395382072624, 'gamma': 0.36083958112876147, 'n_estimators': 35, 'max_depth': 6, 'max_leaves': 10, 'subsample': 0.7744273119528029, 'booster': 'dart'}
-HYPERPARAMS_p05 = {'learning_rate': 0.055507261946723785, 'gamma': 0.5737961358822451, 'n_estimators': 214, 'max_depth': 6, 'max_leaves': 7, 'subsample': 0.7520797264062326, 'booster': 'dart'}
+# HYPERPARAMS_p35 = {'learning_rate': 0.04043818815600482, 'gamma': 0.5713083222302612, 'n_estimators': 196, 'max_depth': 25, 'max_leaves': 2, 'subsample': 0.20159801360534982, 'booster': 'dart'}
+# HYPERPARAMS_p1 = {'learning_rate': 0.05272395382072624, 'gamma': 0.36083958112876147, 'n_estimators': 35, 'max_depth': 6, 'max_leaves': 10, 'subsample': 0.7744273119528029, 'booster': 'dart'}
+# HYPERPARAMS_p05 = {'learning_rate': 0.055507261946723785, 'gamma': 0.5737961358822451, 'n_estimators': 214, 'max_depth': 6, 'max_leaves': 7, 'subsample': 0.7520797264062326, 'booster': 'dart'}
 # classification params
-classification_params = {'learning_rate': 0.07305940290241641, 
-                         'gamma': 0.3795158439477443, 
-                         'n_estimators': 98, 
-                         'max_depth': 13, 
-                         'max_leaves': 4, 
-                         'subsample': 0.05772500174333884, 
-                         'booster': 'dart'}
+classification_params_1 = {'learning_rate':	0.05630002712330792,	'gamma':	0.4690305513808913,	'n_estimators':	55,	'max_depth':	4,	'max_leaves':	8,	'subsample':	0.12165517640445933,	'booster':	'dart'}
 
 def load_data(file_path):
     data = pd.read_csv(file_path,sep='\t')
@@ -420,7 +414,7 @@ def threshold_rocs():
     # list 2021 files
     files_2021 = ['FinalBOCCFeatures/2021/' + f for f in os.listdir('FinalBOCCFeatures/2021/')]
 
-    features = ['gene_ratio', 'HPO_ratio', 'num_sig_go_enrichment_terms', 'num_of_diseases', 'max_norm_disease_specificity', 'cut_ratio', 'expansion', 'newman_girvan_modularity', 'edges_inside']
+    features = ['cluster_size', 'gene_ratio', 'max_norm_disease_specificity', 'avg_embeddedness', 'avg_internal_degree', 'conductance', 'normalized_cut', 'newman_girvan_modularity', 'edges_inside']
  
     res = {'threshold':[],'auc':[]}
     res_tp_fp = {'threshold':[],'tpr':[],'fpr':[]}
@@ -430,7 +424,7 @@ def threshold_rocs():
                         files_2020, 
                         features,
                         plot_prefix='Figures/2019v2020_',
-                        params=classification_params,
+                        params=classification_params_1,
                         downsample=True,
                         threshold=t,
                         plot=False)
@@ -460,7 +454,7 @@ def optimize_train_test_report():
     files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
     files_2021 = ['FinalBOCCFeatures/2021/' + f for f in os.listdir('FinalBOCCFeatures/2021/')]
     # these are the features determined from using just regression, JustRegressionResults/
-    features = ['num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_embeddedness', 'conductance', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside']
+    features = ['cluster_size', 'gene_ratio', 'max_norm_disease_specificity', 'avg_embeddedness', 'avg_internal_degree', 'conductance', 'normalized_cut', 'newman_girvan_modularity', 'edges_inside']
     # load files
     X, y = load_files(files_2019)
     X20, y20 = load_files(files_2020)
@@ -478,26 +472,26 @@ def optimize_train_test_report():
     X = X[features]
     X21 = X21[features]
 
-    # print('-----------------Threshold = 0.1-----------------')
-    # # # threshold the ys as .1
+    # # print('-----------------Threshold = 0.1-----------------')
+    # # # # threshold the ys as .1
     yp1 = [1 if x < .1 else 0 for x in y]
-    p1_params, p1_score = genetic_optimization_classification(X,yp1,downsample=True)
-    # # print('\n\n\n\n\n')
-    # print('-----------------Threshold = 0.35-----------------')
+    # p1_params, p1_score = genetic_optimization_classification(X,yp1,downsample=True)
+    # # # print('\n\n\n\n\n')
+    # # print('-----------------Threshold = 0.35-----------------')
     yp35 = [1 if x < .35 else 0 for x in y]
-    p35_params, p35_score = genetic_optimization_classification(X,yp35,downsample=True)
-    # print('-----------------Threshold = 0.05-----------------')
+    # p35_params, p35_score = genetic_optimization_classification(X,yp35,downsample=True)
+    # # print('-----------------Threshold = 0.05-----------------')
     yp05 = [1 if x < .05 else 0 for x in y]
-    p05_params, p05_score = genetic_optimization_classification(X,yp05,downsample=True)
-    # print('-----------------Threshold = 1.00-----------------')
+    # p05_params, p05_score = genetic_optimization_classification(X,yp05,downsample=True)
+    # # print('-----------------Threshold = 1.00-----------------')
     y_1 = [1 if x < 1 else 0 for x in y]
-    _1_params, _1_score = genetic_optimization_classification(X,y_1,downsample=True)
+    # _1_params, _1_score = genetic_optimization_classification(X,y_1,downsample=True)
 
     # there are the hard coded best params so the genetic algorithm doesn't have to be run every time
-    # _1_params = {'learning_rate': 0.05686513701078857, 'gamma': 0.3690725162929928, 'n_estimators': 211, 'max_depth': 3, 'max_leaves': 2, 'subsample': 0.20829085379990156, 'booster': 'dart'}
-    # p35_params = {'learning_rate': 0.021628224103092883, 'gamma': 0.3221929530606452, 'n_estimators': 87, 'max_depth': 3, 'max_leaves': 7, 'subsample': 0.32206709706671505, 'booster': 'dart'}
-    # p1_params = {'learning_rate': 0.005681916432964979, 'gamma': 0.3422791197286503, 'n_estimators': 209, 'max_depth': 6, 'max_leaves': 6, 'subsample': 0.25470023288701704, 'booster': 'dart'}
-    # p05_params = {'learning_rate': 0.03456314296918745, 'gamma': 0.9629066305213869, 'n_estimators': 48, 'max_depth': 7, 'max_leaves': 7, 'subsample': 0.37969973950855684, 'booster': 'dart'}
+    _1_params = {'learning_rate':	0.05630002712330792,	'gamma':	0.4690305513808913,	'n_estimators':	55,	'max_depth':	4,	'max_leaves':	8,	'subsample':	0.12165517640445933,	'booster':	'dart'}
+    p35_params = {'learning_rate':	0.014197473746727186,	'gamma':	0.9268931377339497,	'n_estimators':	33,	'max_depth':	5,	'max_leaves':	6,	'subsample':	0.3150439646840354,	'booster':	'dart'}
+    p1_params = {'learning_rate':	0.007396713958159095,	'gamma':	0.8870350722646166,	'n_estimators':	15,	'max_depth':	9,	'max_leaves':	2,	'subsample':	0.6422572968379147,	'booster':	'dart'}
+    p05_params = {'learning_rate':	0.013972051435115884,	'gamma':	0.8050990380516317,	'n_estimators':	102,	'max_depth':	1,	'max_leaves':	10,	'subsample':	0.6502192542342633,	'booster':	'dart'}
 
     # train the classifiers
     model_p1, scaler_p1 = train_classifier(X,yp1,normalize=False,downsample=True,params=p1_params)
@@ -588,7 +582,7 @@ def do_shap_analysis():
     files_2021 = ['FinalBOCCFeatures/2021/' + f for f in os.listdir('FinalBOCCFeatures/2021/')]
 
     # these are the features determined from using just regression, JustRegressionResults/
-    features = ['num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_embeddedness', 'conductance', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside']
+    features = ['cluster_size', 'gene_ratio', 'max_norm_disease_specificity', 'avg_embeddedness', 'avg_internal_degree', 'conductance', 'normalized_cut', 'newman_girvan_modularity', 'edges_inside']
     # load files
     X, y = load_files(files_2019)
     X20, y20 = load_files(files_2020)
@@ -606,9 +600,13 @@ def do_shap_analysis():
     X = X[features]
     X21 = X21[features]
 
+    # rename the columns for publication figures
+    X21.columns = ['Size', 'Gene ratio', 'Disease specificity', 'AE', 'AID', 'Conductance', 'Cut', 'NGM', 'EI']
+    X.columns = X21.columns 
+
     yp35 = [1 if x < .35 else 0 for x in y]
 
-    p35_params = {'learning_rate': 0.021628224103092883, 'gamma': 0.3221929530606452, 'n_estimators': 87, 'max_depth': 3, 'max_leaves': 7, 'subsample': 0.32206709706671505, 'booster': 'dart'}
+    p35_params = {'learning_rate':	0.014197473746727186,	'gamma':	0.9268931377339497,	'n_estimators':	33,	'max_depth':	5,	'max_leaves':	6,	'subsample':	0.3150439646840354,	'booster':	'dart'}
     model_p35, scaler_p35 = train_classifier(X,yp35,normalize=False,downsample=True,params=p35_params)
 
     # check if shap_values.p exists
@@ -625,9 +623,19 @@ def do_shap_analysis():
         pickle.dump(shap_values, open('shap_values.p','wb'))
         # picle explainer
         pickle.dump(explainer, open('explainer.p','wb'))
+    fig, ax = plt.subplots()
+    # set figure size
+    plt.gcf().set_size_inches(7, 7)
+    shap.plots.beeswarm(shap_values,show=False)
+    plt.tight_layout()
+    plt.savefig('Figures/shap_beeswarm.png',dpi=300)
+    plt.clf()
     
-    shap.plots.beeswarm(shap_values)
-    shap.plots.bar(shap_values)
+    fig, ax = plt.subplots()
+    plt.gcf().set_size_inches(7, 7)
+    shap.plots.bar(shap_values,show=False)
+    plt.tight_layout()
+    plt.savefig('Figures/shap_bar.png',dpi=300)
 
 def load_clusters(filename,prefix):
     com_dict = {}
@@ -638,9 +646,9 @@ def load_clusters(filename,prefix):
     return com_dict
 
 if __name__ == '__main__':
-    feature_selection()
-    threshold_rocs()
-    optimize_train_test_report()
+    # feature_selection()
+    # threshold_rocs()
+    # optimize_train_test_report()
     do_shap_analysis()
 
 # python Scripts/train_model.py
