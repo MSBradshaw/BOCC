@@ -36,9 +36,9 @@ HYPERPARAMS_Genetic_Algo = {
         'booster' : Categorical(['dart'])
         }
 
-HYPERPARAMS_p35 = {'learning_rate': 0.04043818815600482, 'gamma': 0.5713083222302612, 'n_estimators': 196, 'max_depth': 25, 'max_leaves': 2, 'subsample': 0.20159801360534982, 'booster': 'dart'}
-HYPERPARAMS_p1 = {'learning_rate': 0.05272395382072624, 'gamma': 0.36083958112876147, 'n_estimators': 35, 'max_depth': 6, 'max_leaves': 10, 'subsample': 0.7744273119528029, 'booster': 'dart'}
-HYPERPARAMS_p05 = {'learning_rate': 0.055507261946723785, 'gamma': 0.5737961358822451, 'n_estimators': 214, 'max_depth': 6, 'max_leaves': 7, 'subsample': 0.7520797264062326, 'booster': 'dart'}
+# HYPERPARAMS_p35 = {'learning_rate': 0.04043818815600482, 'gamma': 0.5713083222302612, 'n_estimators': 196, 'max_depth': 25, 'max_leaves': 2, 'subsample': 0.20159801360534982, 'booster': 'dart'}
+# HYPERPARAMS_p1 = {'learning_rate': 0.05272395382072624, 'gamma': 0.36083958112876147, 'n_estimators': 35, 'max_depth': 6, 'max_leaves': 10, 'subsample': 0.7744273119528029, 'booster': 'dart'}
+# HYPERPARAMS_p05 = {'learning_rate': 0.055507261946723785, 'gamma': 0.5737961358822451, 'n_estimators': 214, 'max_depth': 6, 'max_leaves': 7, 'subsample': 0.7520797264062326, 'booster': 'dart'}
 # classification params
 classification_params = {'learning_rate': 0.07305940290241641, 
                          'gamma': 0.3795158439477443, 
@@ -420,7 +420,7 @@ def threshold_rocs():
     # list 2021 files
     files_2021 = ['FinalBOCCFeatures/2021/' + f for f in os.listdir('FinalBOCCFeatures/2021/')]
 
-    features = ['gene_ratio', 'HPO_ratio', 'num_sig_go_enrichment_terms', 'num_of_diseases', 'max_norm_disease_specificity', 'cut_ratio', 'expansion', 'newman_girvan_modularity', 'edges_inside']
+    features = ['cluster_size', 'gene_ratio', 'max_norm_disease_specificity', 'avg_embeddedness', 'avg_internal_degree', 'conductance', 'normalized_cut', 'newman_girvan_modularity', 'edges_inside'] 
  
     res = {'threshold':[],'auc':[]}
     res_tp_fp = {'threshold':[],'tpr':[],'fpr':[]}
@@ -460,7 +460,7 @@ def optimize_train_test_report():
     files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
     files_2021 = ['FinalBOCCFeatures/2021/' + f for f in os.listdir('FinalBOCCFeatures/2021/')]
     # these are the features determined from using just regression, JustRegressionResults/
-    features = ['num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_embeddedness', 'conductance', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside']
+    features = ['cluster_size', 'gene_ratio', 'max_norm_disease_specificity', 'avg_embeddedness', 'avg_internal_degree', 'conductance', 'normalized_cut', 'newman_girvan_modularity', 'edges_inside'] 
     # load files
     X, y = load_files(files_2019)
     X20, y20 = load_files(files_2020)
@@ -588,7 +588,7 @@ def do_shap_analysis():
     files_2021 = ['FinalBOCCFeatures/2021/' + f for f in os.listdir('FinalBOCCFeatures/2021/')]
 
     # these are the features determined from using just regression, JustRegressionResults/
-    features = ['num_sig_go_enrichment_terms', 'num_of_diseases', 'avg_embeddedness', 'conductance', 'normalized_cut', 'triangle_participation_ratio', 'newman_girvan_modularity', 'edges_inside']
+    features = ['cluster_size', 'gene_ratio', 'max_norm_disease_specificity', 'avg_embeddedness', 'avg_internal_degree', 'conductance', 'normalized_cut', 'newman_girvan_modularity', 'edges_inside'] 
     # load files
     X, y = load_files(files_2019)
     X20, y20 = load_files(files_2020)
