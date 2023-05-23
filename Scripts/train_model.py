@@ -414,7 +414,7 @@ def threshold_rocs():
     # list 2021 files
     files_2021 = ['FinalBOCCFeatures/2021/' + f for f in os.listdir('FinalBOCCFeatures/2021/')]
 
-    features = ['cluster_size', 'gene_ratio', 'max_norm_disease_specificity', 'avg_embeddedness', 'avg_internal_degree', 'conductance', 'normalized_cut', 'newman_girvan_modularity', 'edges_inside']
+    features = ['cluster_size', 'gene_ratio', 'max_norm_disease_specificity', 'avg_embeddedness', 'avg_internal_degree', 'conductance', 'normalized_cut', 'newman_girvan_modularity', 'edges_inside'] 
  
     res = {'threshold':[],'auc':[]}
     res_tp_fp = {'threshold':[],'tpr':[],'fpr':[]}
@@ -454,7 +454,7 @@ def optimize_train_test_report():
     files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
     files_2021 = ['FinalBOCCFeatures/2021/' + f for f in os.listdir('FinalBOCCFeatures/2021/')]
     # these are the features determined from using just regression, JustRegressionResults/
-    features = ['cluster_size', 'gene_ratio', 'max_norm_disease_specificity', 'avg_embeddedness', 'avg_internal_degree', 'conductance', 'normalized_cut', 'newman_girvan_modularity', 'edges_inside']
+    features = ['cluster_size', 'gene_ratio', 'max_norm_disease_specificity', 'avg_embeddedness', 'avg_internal_degree', 'conductance', 'normalized_cut', 'newman_girvan_modularity', 'edges_inside'] 
     # load files
     X, y = load_files(files_2019)
     X20, y20 = load_files(files_2020)
@@ -590,7 +590,7 @@ def do_shap_analysis():
     files_2021 = ['FinalBOCCFeatures/2021/' + f for f in os.listdir('FinalBOCCFeatures/2021/')]
 
     # these are the features determined from using just regression, JustRegressionResults/
-    features = ['cluster_size', 'gene_ratio', 'max_norm_disease_specificity', 'avg_embeddedness', 'avg_internal_degree', 'conductance', 'normalized_cut', 'newman_girvan_modularity', 'edges_inside']
+    features = ['cluster_size', 'gene_ratio', 'max_norm_disease_specificity', 'avg_embeddedness', 'avg_internal_degree', 'conductance', 'normalized_cut', 'newman_girvan_modularity', 'edges_inside'] 
     # load files
     X, y = load_files(files_2019)
     X20, y20 = load_files(files_2020)
