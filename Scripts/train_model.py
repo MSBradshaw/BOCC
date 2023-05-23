@@ -574,6 +574,14 @@ def optimize_train_test_report():
             outfile.write('{}\t{}\t{}\t{}\t{}\t{}\n'.format(cid,node,_1,p35,p1,p05))
     outfile.close()
 
+    # write the results to a TSV with the following columns: cluster_id, p < 1.00, p < 0.35, p < 0.10, p < 0.05
+    print('Writing results to Results/2021_predictions_cluster.tsv')
+    outfile = open('Results/2021_predictions_cluster.tsv','w')
+    outfile.write('{}\t{}\t{}\t{}\t{}\n'.format('cluster_id','p < 1.00','p < 0.35','p < 0.10','p < 0.05'))
+    for cid, _1, p35, p1, p05 in zip(X21_cluster_ids, y21_pred_binary_1, y21_pred_binary_p35, y21_pred_binary_p1, y21_pred_binary_p05):
+        outfile.write('{}\t{}\t{}\t{}\t{}\n'.format(cid,_1,p35,p1,p05))
+    outfile.close()
+
 # function that trains on 2019 and 2020 and tests on 2021, using the 0.35 threshold and the optimzed parameters, then calculate SHAP values for each feature
 def do_shap_analysis():
     # list 2019 files
@@ -648,7 +656,7 @@ def load_clusters(filename,prefix):
 if __name__ == '__main__':
     # feature_selection()
     # threshold_rocs()
-    # optimize_train_test_report()
-    do_shap_analysis()
+    optimize_train_test_report()
+    # do_shap_analysis()
 
 # python Scripts/train_model.py
