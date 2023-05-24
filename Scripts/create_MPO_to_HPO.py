@@ -50,13 +50,18 @@ print(hpo_mpo)
 print(hpo_mpo.shape)
 
 # how many of these HPO -> Human Gene edges are in the 2021 network?
-G21 = nx.read_edgelist('Edgelists/String_HPO_2021.phenotypic_branch.edgelist.txt')
-print(len(G21.nodes))
-with open('Resources/hpo_to_gene_derived_by_mpo.edgelist.2021.txt','w') as outfile:
+G22 = nx.read_edgelist('Edgelists/String_HPO_2022.phenotypic_branch.edgelist.txt')
+print(len(G22.nodes))
+written = set()
+with open('Resources/hpo_to_gene_derived_by_mpo.edgelist.2022.txt','w') as outfile:
 	for i,row in hpo_mpo.iterrows():
 		# remove autosomal resesive and dominate inheritance terms
 		if row['HP ID'] in ['HP:0003745', 'HP:0000007', 'HP:0000006']:
 			continue
-		if [row['HP ID'], row['Human Gene Symbol']] not in G21.edges and [row['Human Gene Symbol'], row['HP ID']] not in G21.edges:
+		if [row['HP ID'], row['Human Gene Symbol']] not in G22.edges and [row['Human Gene Symbol'], row['HP ID']] not in G22.edges:
 			print(row)
-			outfile.write('{hpo}\t{gene}\t{name}\n'.format(hpo=row['HP ID'],gene=row['Human Gene Symbol'], name=G.nodes(data=True)[row['HP ID']]['name']))
+			write_row = '{hpo}\t{gene}\t{name}\n'.format(hpo=row['HP ID'],gene=row['Human Gene Symbol'], name=G.nodes(data=True)[row['HP ID']]['name'])
+			if write_row in written:
+				continue
+			outfile.write(write_row)
+			written.add(write_row)

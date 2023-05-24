@@ -42,7 +42,7 @@ HYPERPARAMS_Genetic_Algo = {
 # classification params
 classification_params_1 = {'learning_rate':	0.05630002712330792,	'gamma':	0.4690305513808913,	'n_estimators':	55,	'max_depth':	4,	'max_leaves':	8,	'subsample':	0.12165517640445933,	'booster':	'dart'}
 
-def load_data(file_path):
+def load_data(file_path,avoid_y=False):
     data = pd.read_csv(file_path,sep='\t')
     data['algo'] = '.'.join(file_path.split('/')[-1].split('.')[0:2])
     # remove the column cluster_id
@@ -53,7 +53,10 @@ def load_data(file_path):
         else:
             print('WARNING: {} not in data'.format(name))
     # pop the snowballing_pvalue column
-    labels = list(data.pop('snowballing_pvalue'))
+    if not avoid_y:
+        labels = list(data.pop('snowballing_pvalue'))
+    else:
+        labels = None
     with open('features.tsv','w') as f:
         f.write('Feature\tMin-Max\tMean\tMedian\n')
         for col in data.columns:
@@ -80,11 +83,11 @@ def load_data(file_path):
             # print('\n\n')
     return data, labels
 
-def load_files(files):
+def load_files(files,avoid_y=False):
     X = None
     y = None
     for f in files:
-        tmp_X, tmp_y = load_data(f)
+        tmp_X, tmp_y = load_data(f,avoid_y)
         if X is None:
             X = tmp_X
             y = tmp_y
@@ -453,17 +456,20 @@ def optimize_train_test_report():
     files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
     files_2020 = ['FinalBOCCFeatures/2020/' + f for f in os.listdir('FinalBOCCFeatures/2020/')]
     files_2021 = ['FinalBOCCFeatures/2021/' + f for f in os.listdir('FinalBOCCFeatures/2021/')]
+    files_2022 = ['SnowballedCleanedSplit100BOCCResultsCombinedFixed/2022/' + f for f in os.listdir('SnowballedCleanedSplit100BOCCResultsCombinedFixed/2022/')]
     # these are the features determined from using just regression, JustRegressionResults/
     features = ['cluster_size', 'gene_ratio', 'max_norm_disease_specificity', 'avg_embeddedness', 'avg_internal_degree', 'conductance', 'normalized_cut', 'newman_girvan_modularity', 'edges_inside'] 
     # load files
     X, y = load_files(files_2019)
     X20, y20 = load_files(files_2020)
     X21, y21 = load_files(files_2021)
+    X22, y22 = load_files(files_2022, avoid_y=False)
 
     # create list of names for the samples in X19 based on algo and the row index
     X19_cluster_ids = ['{}.{}:{}'.format(a,'2019',str(i)) for a,i in zip(X['algo'],X['cluster_id'])]
     X20_cluster_ids = ['{}.{}:{}'.format(a,'2020',str(i)) for a,i in zip(X20['algo'],X20['cluster_id'])]
     X21_cluster_ids = ['{}.{}:{}'.format(a,'2021',str(i)) for a,i in zip(X21['algo'],X21['cluster_id'])]
+    X22_cluster_ids = ['{}.{}:{}'.format(a,'2022',str(i)) for a,i in zip(X22['algo'],X22['cluster_id'])]
 
     X = pd.concat([X,X20])
     y = y + y20
@@ -471,6 +477,7 @@ def optimize_train_test_report():
     # subset the features
     X = X[features]
     X21 = X21[features]
+    X22 = X22[features]
 
     # # print('-----------------Threshold = 0.1-----------------')
     # # # # threshold the ys as .1
@@ -510,6 +517,12 @@ def optimize_train_test_report():
     y21_pred_binary_p35 = model_p35.predict(X21)
     y21_pred_binary_p05 = model_p05.predict(X21)
     y21_pred_binary_1 = model_1.predict(X21)
+
+    # predict X22
+    y22_pred_binary_p1 = model_p1.predict(X22)
+    y22_pred_binary_p35 = model_p35.predict(X22)
+    y22_pred_binary_p05 = model_p05.predict(X22)
+    y22_pred_binary_1 = model_1.predict(X22)
 
     # get roc curve
     y21_p1 = [1 if x < .1 else 0 for x in y21]
@@ -581,6 +594,28 @@ def optimize_train_test_report():
     for cid, _1, p35, p1, p05 in zip(X21_cluster_ids, y21_pred_binary_1, y21_pred_binary_p35, y21_pred_binary_p1, y21_pred_binary_p05):
         outfile.write('{}\t{}\t{}\t{}\t{}\n'.format(cid,_1,p35,p1,p05))
     outfile.close()
+
+    # write the 2022 results to a tsv
+    print('Writing results to Results/2022_predictions.tsv')
+    outfile = open('Results/2022_predictions.tsv','w')
+    outfile.write('{}\t{}\t{}\t{}\t{}\n'.format('cluster_id','gene','p < 1.00','p < 0.35','p < 0.10','p < 0.05'))
+    for cid, _1, p35, p1, p05 in zip(X22_cluster_ids, y22_pred_binary_1, y22_pred_binary_p35, y22_pred_binary_p1, y22_pred_binary_p05):
+        if cid not in all_coms:
+            continue
+        for node in all_coms[cid]:
+            if 'HP:' in node:
+                continue
+            outfile.write('{}\t{}\t{}\t{}\t{}\t{}\n'.format(cid,node,_1,p35,p1,p05))
+    outfile.close()
+
+    # write the 2022 results to a tsv
+    print('Writing results to Results/2022_predictions_cluster.tsv')
+    outfile = open('Results/2022_predictions_cluster.tsv','w')
+    outfile.write('{}\t{}\t{}\t{}\t{}\n'.format('cluster_id','p < 1.00','p < 0.35','p < 0.10','p < 0.05'))
+    for cid, _1, p35, p1, p05 in zip(X22_cluster_ids, y22_pred_binary_1, y22_pred_binary_p35, y22_pred_binary_p1, y22_pred_binary_p05):
+        outfile.write('{}\t{}\t{}\t{}\t{}\n'.format(cid,_1,p35,p1,p05))
+    outfile.close()
+
 
 # function that trains on 2019 and 2020 and tests on 2021, using the 0.35 threshold and the optimzed parameters, then calculate SHAP values for each feature
 def do_shap_analysis():
