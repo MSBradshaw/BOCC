@@ -14,7 +14,7 @@ class BOCC:
     """
 
     def __init__(self):
-        self.members = []
+        self.members = set()
         self.types = []
         self.name = None
         self.genes = None
@@ -42,7 +42,7 @@ class BOCC:
         # if no types are given, create a list of equal length with mems to add
         if types is None:
             types = [None] * len(mems)
-        self.members += mems
+        self.members =  self.members.union(set(mems))
         self.types += types
 
     def get_genes(self) -> typing.List[str]:
@@ -54,10 +54,8 @@ class BOCC:
         if self.genes is not None:
             return self.genes
         # if there are no types listed assuming that anything without the HP: (denoting an HPO term) prefix is a gene
-        elif self.types is None or sum(0 if x is None else 1 for x in self.types) == 0:
-            self.genes = [x for x in self.members if 'HP:' not in x]
         else:
-            self.genes = [self.members[i] for i in range(len(self.types)) if self.types[i] == 'gene']
+            self.genes = [x for x in self.members if 'HP:' not in x]
         return self.genes
 
     def go_enrichment(self) -> pd.DataFrame:
@@ -573,8 +571,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('-o', '--output', required=True, help='where to write the output dirrectory')
     parser.add_argument('-e', '--edgelist', required=True, help='Path to the edgelist file')
     parser.add_argument('--verbose', required=False, default=False, action='store_true', help='Path to the edgelist file')
-    # add a parameter for the number of processes to use
-    parser.add_argument('-n', '--num_processes', required=False, type=int, default=1, help='Number of processes to use')
     return parser.parse_args()
 
 # create a function that reads the genes file as a tabix object 
@@ -599,32 +595,17 @@ def find_intersection(genes:TabixFile, vcf:pysam.VariantFile, verbose:bool=False
             affected_genes.add(gene[3])
     return affected_genes
 
-# create a function that searchs for pairs of HPOs and affected genes in side the .members object of each BOCC cluster
-def find_hpo_genes(clusters:typing.List[BOCC], affected_genes:set, hpos:list, G:nx.Graph) -> tuple[typing.List[str], typing.List[str]]:
-    matches = []
-    preexisting = []
-    for com in clusters:
-        for gene in affected_genes:
-            for hpo in hpos:
-                if hpo in com.members and gene in com.members:
-                    # check if the hpo gene edge already exists in the graph
-                    if G.has_edge(gene, hpo):
-                        preexisting.append(f'{gene}\t{hpo}\t{com.name}')
-                    else:
-                        matches.append(f'{gene}\t{hpo}\t{com.name}')
-    return matches, preexisting
-
 # create a function to load the HPO file
-def load_hpos(hpos_path:str) -> list:
+def load_hpos(hpos_path:str) -> set:
     with open(hpos_path) as f:
-        return [hpo.strip() for hpo in f]
+        return set([hpo.strip() for hpo in f])
 
 # create a function to read the edgelist in as a networkx graph
 def read_edgelist(edgelist_path:str) -> nx.Graph:
     return nx.read_edgelist(edgelist_path)
 
 # create a function to write the matches and preexisting matches to seporate files in the output dirrectory
-def write_matches(matches:typing.List[str], preexisting:typing.List[str], output_path:str) -> None:
+def write_matches(matches:pd.DataFrame, preexisting:typing.List[str], output_path:str) -> None:
     # if ouput path doesn end in a slash, add one
     if not output_path.endswith('/'):
         output_path += '/'
@@ -635,28 +616,7 @@ def write_matches(matches:typing.List[str], preexisting:typing.List[str], output
         for match in preexisting:
             f.write(match + '\n')
     # write the preexisting matches to a file
-    with open(output_path + 'novel_matches.txt', 'w') as f:
-        for match in matches:
-            f.write(match + '\n')
-
-# create a another version of the find_hpo_genes function that search for each cluster indiviudally and is parallelized to use X cores
-def find_hpo_genes_parallel(clusters:typing.List[BOCC], affected_genes:set, hpos:list, G:nx.Graph, cores:int) -> tuple[typing.List[str], typing.List[str]]:
-    # create a pool of workers
-    pool = Pool(cores)
-    # create a list of arguments for each worker
-    args = [([com], affected_genes, hpos, G) for com in clusters]
-    # run the workers
-    results = pool.starmap(find_hpo_genes, args)
-    # close the pool
-    pool.close()
-    # create a list of matches and preexisting matches
-    matches = []
-    preexisting = []
-    # add the results from each worker to the list of matches and preexisting matches
-    for result in results:
-        matches += result[0]
-        preexisting += result[1]
-    return matches, preexisting
+    matches.to_csv(output_path + 'novel_matches.tsv', sep='\t', index=False, header=False)
 
 # write a function to check if a dirrectory exists and if not create it
 def check_dir(dir_path:str) -> None:
@@ -667,8 +627,42 @@ def check_dir(dir_path:str) -> None:
 def v_print(verbose:bool, *args, **kwargs):
     if verbose:
         print(*args, **kwargs)
-    
 
+def get_list_of_cluster_edges(clusters:typing.List[BOCC], G:nx.Graph) -> typing.List[str]:
+    real_edges = []
+    possible_edge = []
+    for com in clusters:
+        real_edges.append(set())
+        possible_edge.append(set())
+        for hpo in com.members:
+            for gene in com.members:
+                if G.has_edge(gene, hpo):
+                    real_edges[-1].add('{gene}\t{hpo}'.format(gene=gene, hpo=hpo))
+                else:
+                    possible_edge[-1].add('{gene}\t{hpo}'.format(gene=gene, hpo=hpo))
+    return real_edges, possible_edge
+
+def get_search_edges(hpos:set,genes:set,G:nx.Graph) -> typing.Tuple[typing.List[str], typing.List[str]]:
+    preexisting_edges = set()
+    possible_new_edges = set()
+    for hpo in hpos:
+        for gene in genes:
+            if G.has_edge(gene,hpo):
+                preexisting_edges.add('{gene}\t{hpo}'.format(gene=gene, hpo=hpo))
+            else:
+                possible_new_edges.add('{gene}\t{hpo}'.format(gene=gene, hpo=hpo))
+    return preexisting_edges, possible_new_edges
+
+def find_novel_matches(search_edges,possible_edges,c_names) -> pd.DataFrame:
+    matches = {'gene':[],'hpo':[],'cluster':[]}
+    for cluster_edges,cluster_name in zip(possible_edges,c_names):
+        tmp_matches = search_edges.intersection(cluster_edges)
+        for match in tmp_matches:
+            gene,hpo = match.split('\t')
+            matches['gene'].append(gene)
+            matches['hpo'].append(hpo)
+            matches['cluster'].append(cluster_name)
+    return pd.DataFrame(matches)
 
 def main():
     args = parse_args()
@@ -679,11 +673,16 @@ def main():
     clusters = load_clusters(args.clusters)
     hpos = load_hpos(args.hpos)
     G = read_edgelist(args.edgelist)
-    if args.num_processes > 1:
-        matches, preexisting = find_hpo_genes_parallel(clusters, affect_genes, hpos, G, args.num_processes)
-    else:
-        matches, preexisting = find_hpo_genes(clusters, affect_genes, hpos, G)
-    write_matches(matches, preexisting, args.output)
+    # get a list of the cluster names
+    cluster_names = [com.name for com in clusters]
+    # make sets set(['gene\thpo','gene\thpo',...]) of the real edges and possible edges for each cluster
+    real_e, possible_e = get_list_of_cluster_edges(clusters, G)
+    # make sets set(['gene\thpo','gene\thpo',...]) of the real edges and possible edges for the patient information being searched
+    patient_preexisting_edges, patient_possible_new_edges = get_search_edges(hpos, affect_genes, G)
+    # do the intersection between possible edges in the patients info and the clusters
+    novel_matches_df = find_novel_matches(patient_possible_new_edges,possible_e,cluster_names)
+    # write the matches, new and old to a file
+    write_matches(novel_matches_df, patient_preexisting_edges, args.output)
 
 if __name__ == '__main__':
     main()
