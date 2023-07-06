@@ -25,6 +25,7 @@ from sklearn.metrics import make_scorer
 import shap
 from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, accuracy_score
 from sklearn.metrics import confusion_matrix
+std_fontsize = 12
 
 HYPERPARAMS_Genetic_Algo = {
         'learning_rate': Continuous(1e-3, 1e-1, distribution='uniform'),
@@ -439,16 +440,17 @@ def threshold_rocs():
         res_tp_fp['fpr'].append(fpr)
     # plot t vs auc
     fig, ax = plt.subplots()
+    fig.set_size_inches(5,5)
     ax.plot(res['threshold'],res['auc'])
-    ax.set_xlabel('Threshold')
-    ax.set_ylabel('AUC')
+    ax.set_xlabel('Threshold',fontsize=std_fontsize)
+    ax.set_ylabel('AUC',fontsize=std_fontsize)
     # remove top and right spines from the ax
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     # set x ticks
     ax.set_xticks([0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1])
     plt.tight_layout()
-    plt.savefig('Figures/threshold_auc.png')
+    plt.savefig('PublicationFigures/threshold_auc.png',dpi=300)
     plt.clf()
 
 def optimize_train_test_report():
@@ -542,6 +544,8 @@ def optimize_train_test_report():
     auc_1 = roc_auc_score(y21_1, y21_pred_1)
 
     # plot the roc curves
+    fig, ax = plt.subplots()
+    fig.set_size_inches(5, 5)
     plt.plot(fpr_1, tpr_1, label='p < 1.00 (area = %0.2f)' % auc_1)
     plt.plot(fpr_p35, tpr_p35, label='p < 0.35 (area = %0.2f)' % auc_p35)
     plt.plot(fpr_p1, tpr_p1, label='p < 0.10 (area = %0.2f)' % auc_p1)
@@ -549,16 +553,14 @@ def optimize_train_test_report():
     plt.plot([0, 1], [0, 1], 'k--')  # random predictions curve
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.0])
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
+    plt.xlabel('False Positive Rate',fontsize=std_fontsize)
+    plt.ylabel('True Positive Rate',fontsize=std_fontsize)
     # remove top and right border
     ax = plt.gca()
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
-    # set figure size
-    plt.gcf().set_size_inches(5, 5)
     plt.legend(loc="lower right",frameon=False)
-    plt.savefig('Figures/trained_19_20_test_2021_roc.png',dpi=300)
+    plt.savefig('PublicationFigures/trained_19_20_test_2021_roc.png',dpi=300)
     plt.clf()
 
     # write results to TSV with the following columns:
@@ -690,7 +692,7 @@ def load_clusters(filename,prefix):
 
 if __name__ == '__main__':
     # feature_selection()
-    # threshold_rocs()
+    threshold_rocs()
     optimize_train_test_report()
     # do_shap_analysis()
 
