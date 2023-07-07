@@ -453,6 +453,11 @@ def threshold_rocs():
     plt.savefig('PublicationFigures/threshold_auc.png',dpi=300)
     plt.clf()
 
+    res = pd.DataFrame(res)
+    # pickle dump res
+    pickle.dump(res,open('Results/threshold_auc.pkl','wb'))
+    
+
 def optimize_train_test_report():
     # list 2019 files
     files_2019 = ['FinalBOCCFeatures/2019/' + f for f in os.listdir('FinalBOCCFeatures/2019/')]
@@ -562,6 +567,21 @@ def optimize_train_test_report():
     plt.legend(loc="lower right",frameon=False)
     plt.savefig('PublicationFigures/trained_19_20_test_2021_roc.png',dpi=300)
     plt.clf()
+
+    pickle.dump(fpr_1,open('Results/trained_19_20_test_2021_fpr_1.pkl','wb'))
+    pickle.dump(tpr_1,open('Results/trained_19_20_test_2021_tpr_1.pkl','wb'))
+    pickle.dump(fpr_p35,open('Results/trained_19_20_test_2021_fpr_p35.pkl','wb'))
+    pickle.dump(tpr_p35,open('Results/trained_19_20_test_2021_tpr_p35.pkl','wb'))
+    pickle.dump(fpr_p1,open('Results/trained_19_20_test_2021_fpr_p1.pkl','wb'))
+    pickle.dump(tpr_p1,open('Results/trained_19_20_test_2021_tpr_p1.pkl','wb'))
+    pickle.dump(fpr_p05,open('Results/trained_19_20_test_2021_fpr_p05.pkl','wb'))
+    pickle.dump(tpr_p05,open('Results/trained_19_20_test_2021_tpr_p05.pkl','wb'))
+
+    pickle.dump(auc_1,open('Results/trained_19_20_test_2021_auc_1.pkl','wb'))
+    pickle.dump(auc_p35,open('Results/trained_19_20_test_2021_auc_p35.pkl','wb'))
+    pickle.dump(auc_p1,open('Results/trained_19_20_test_2021_auc_p1.pkl','wb'))
+    pickle.dump(auc_p05,open('Results/trained_19_20_test_2021_auc_p05.pkl','wb'))
+
 
     # write results to TSV with the following columns:
     # cluster_id, gene, 1.00, 0.35, 0.10, 0.05
