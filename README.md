@@ -95,4 +95,4 @@ conda activate reproduce_bocc
 snakemake -s run_everything.smk --cores 64
 ```
 
-This pipeline will produce the clusters them selves and .tsv files containing the features used by XGBoost for usefulness predictions. The training, testing and use of XGBoost reproduction can be found [here](https://github.com/ConGibbs10/BOCCRank).
+This pipeline will produce the clusters them selves and the XGBoost prediction results.
